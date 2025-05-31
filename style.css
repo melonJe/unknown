@@ -1,0 +1,69 @@
+:root {
+  --cols: 23;
+  --tile-size: calc(90vw / var(--cols));
+}
+
+body {
+  font-family: sans-serif;
+  text-align: center;
+  background: #f8f8f8;
+}
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--tile-size));
+  grid-template-rows: repeat(var(--cols), var(--tile-size));
+  gap: 1px;
+  margin: 10px auto;
+  width: max-content;
+  background-color: #ccc;
+  border: 2px solid #444;
+  touch-action: none;
+}
+
+.tile {
+  width: var(--tile-size);
+  height: var(--tile-size);
+  border: 1px solid #999;
+  font-size: calc(var(--tile-size) * 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+
+
+.tile.start {
+  background: gray;
+}
+
+.tile.goal {
+  background: black;
+  color: white;
+}
+
+.tile.floor.red {
+  background: #BF2C47;
+}
+
+.tile.floor.blue {
+  background: #0468BF;
+}
+
+.tile.floor.yellow {
+  background: #D9C24E;
+}
+
+.tile.floor.green {
+  background: #03A678;
+}
+
+.tile.floor.purple {
+  background: #8B65BF;
+}
+
+.tile.floor.white {
+  background: white;
+}
