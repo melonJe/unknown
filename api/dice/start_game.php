@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 $board = json_decode(file_get_contents(__DIR__ . '/../data/board.json'), true);
 

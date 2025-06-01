@@ -16,7 +16,7 @@ class RoomUser extends Model
         'room_id',
         'user_id',
         'pos_x',
-        'pos_y',
+        'pos_x',
         'dice',
         'joined_at'
     ];

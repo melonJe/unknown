@@ -31,9 +31,8 @@ body {
   justify-content: center;
   box-sizing: border-box;
   text-align: center;
+  user-select: none;
 }
-
-
 
 .tile.start {
   background: gray;
@@ -66,4 +65,62 @@ body {
 
 .tile.floor.white {
   background: white;
+}
+
+
+/* dice */
+.dice-container {
+  width: 80%;
+  height: 80%;
+  perspective: 400px;
+  cursor: default;
+}
+
+.dice {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(0deg) rotateY(0deg);
+  transition: transform 0.1s ease;
+  pointer-events: none;
+}
+
+.face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  opacity: 0.95;
+  backface-visibility: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* translateZ: tile-size / 2 */
+
+.front {
+  transform: rotateY(0deg) translateZ(15px);
+}
+
+.back {
+  transform: rotateY(180deg) translateZ(15px);
+}
+
+.right {
+  transform: rotateY(90deg) translateZ(15px);
+}
+
+.left {
+  transform: rotateY(-90deg) translateZ(15px);
+}
+
+.top {
+  transform: rotateX(90deg) translateZ(15px);
+}
+
+.bottom {
+  transform: rotateX(-90deg) translateZ(15px);
 }

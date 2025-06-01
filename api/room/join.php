@@ -9,7 +9,7 @@ use App\Models\RoomUser;
 session_start();
 
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+try {
     $roomId = $_POST['room_id'] ?? null;
     $user_id = $_SESSION['user_id'] ?? null;
 
@@ -49,14 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         "room" => $room,
         "player" => $roomuser
     ]);
-} elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-    $user_id = $_SESSION['user_id'] ?? null;
-
-    RoomUser::where('user_id', $user_id)
-        ->delete();
-    exit;
-} else {
-    http_response_code(405); // Method Not Allowed
-    echo json_encode(['error' => 'Invalid method']);
-    exit;
+} catch (Exception $e) {
+    file_put_contents(BASE_PATH . '/debug.log', "[ERROR] " . $e->getMessage() . "\n", FILE_APPEND);
+    http_response_code(500);
+    echo json_encode([
+        "error" => "DB error",
+        "message" => $e->getMessage()
+    ]);
 }

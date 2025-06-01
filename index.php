@@ -33,7 +33,7 @@
   </ul>
 
   <script>
-    fetch(`/api/room/join.php`, {
+    fetch(`/api/room/delete_room_user.php`, {
       method: 'DELETE',
       credentials: 'include',
     });
