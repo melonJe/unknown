@@ -81,11 +81,10 @@ switch ($direction) {
         break;
 }
 
-$roomUser->update([
-    'pos_x' => $x,
-    'pos_y' => $y,
-    'dice' => $dice
-]);
+$roomUser->pos_x = $x;
+$roomUser->pos_y = $y;
+$roomUser->dice = $dice;
+$roomUser->save();
 
 echo json_encode([
     'success' => true,

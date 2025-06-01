@@ -22,8 +22,7 @@ async function loadRoomUsers(roomId) {
 
         const tileIndex = (pos_y - 1) * 23 + (pos_x - 1);
         const tile = board.children[tileIndex];
-
-        const diceEl = createDiceElement(dice);
+        const diceEl = createDiceElement(dice, tile);
         tile.appendChild(diceEl);
     }
 }
@@ -67,7 +66,9 @@ function renderBoard(data) {
     }
 }
 
-function createDiceElement(diceData) {
+function createDiceElement(diceData, tileData) {
+    score = tileData.innerHTML
+    tileData.innerHTML = ''
     const container = document.createElement('div');
     container.className = 'dice-container';
 
@@ -154,6 +155,7 @@ function createDiceElement(diceData) {
             }
             console.error(result);
             // 성공 시 UI 갱신 등 작업
+            tileData.innerHTML = score
             document.querySelectorAll('.dice-container').forEach(el => el.remove());
             loadRoomUsers(roomId);
 
