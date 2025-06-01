@@ -33,14 +33,31 @@
   </ul>
 
   <script>
+    fetch(`/api/room/join.php`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    fetch('/api/user/init.php')
+      .then(res => res.json())
+      .then(user => {
+        console.log('내 정보:', user);
+      });
+
+    fetch('/api/user/list.php')
+      .then(res => res.json())
+      .then(({ users }) => {
+        console.log('전체 유저:', users);
+      });
+
     async function createRoom() {
-      const res = await fetch('/api/create_room.php', { method: 'POST' });
+      const res = await fetch('/api/room/create.php', { method: 'POST' });
       const data = await res.json();
       location.href = `game.php?room_id=${data.room_id}`;
     }
 
     async function loadRooms() {
-      const res = await fetch('/api/list_rooms.php');
+      const res = await fetch('/api/room/list.php');
       const data = await res.json();
       const list = document.getElementById('room-list');
       list.innerHTML = '';

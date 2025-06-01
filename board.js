@@ -1,17 +1,23 @@
-fetch('/api/get_board.php')
+fetch('/api/user/init.php')
     .then(res => res.json())
-    .then(data => renderBoard(data));
+    .then(user => {
+        console.log('내 정보:', user);
+    });
+
+fetch('/api/user/list.php')
+    .then(res => res.json())
+    .then(({ users }) => {
+        console.log('전체 유저:', users);
+    });
 
 function renderBoard(data) {
     const board = document.getElementById('board');
-
-    // 스타일 반응형 적용
+    board.innerHTML = '';
     board.style.gridTemplateColumns = `repeat(${data.width}, 40px)`;
     board.style.gridTemplateRows = `repeat(${data.height}, 40px)`;
     const boardWidth = board.width;
     document.documentElement.style.setProperty('--cols', boardWidth);
 
-    // 타일 맵 초기화
     const tileMap = Array.from({ length: data.height }, () =>
         Array.from({ length: data.width }, () => null)
     );
@@ -31,7 +37,7 @@ function renderBoard(data) {
                 if (tile.type === 'floor' && tile.color) {
                     div.classList.add(tile.color);
                 }
-                if (tile.score !== undefined) {
+                if ('score' in tile) {
                     div.textContent = tile.score;
                 }
             } else {
@@ -42,4 +48,3 @@ function renderBoard(data) {
         }
     }
 }
-

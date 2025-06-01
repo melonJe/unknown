@@ -1,0 +1,22 @@
+{
+    "name": "cabs0/unknown",
+    "autoload": {
+        "psr-4": {
+            "Cabs0\\Unknown\\": "src/",
+            "App\\": "app/"
+        }
+    },
+    "authors": [
+        {
+            "name": "melonJe",
+            "email": "jmayermj@gmail.com"
+        }
+    ],
+    "require": {
+        "illuminate/database": "^12.16",
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "^3.13"
+    }
+}

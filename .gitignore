@@ -1,0 +1,5 @@
+.env*
+composer.phar
+/vendor/
+.phpcs.xml
+.vscode*

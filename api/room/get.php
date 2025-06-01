@@ -1,4 +1,5 @@
 <?php
+
 $roomId = $_GET['room_id'];
 $path = __DIR__ . "/../rooms/room_$roomId.json";
 if (!file_exists($path)) {
