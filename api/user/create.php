@@ -5,7 +5,7 @@ require_once LIB_PATH . '/bootstrap.php';
 
 $defaultBoard = file_get_contents(DATA_PATH . '/board.json');
 
-use App\Models\Room;
+use Models\Room;
 
 try {
     // 고유한 방 ID 생성 (6자리 해시)

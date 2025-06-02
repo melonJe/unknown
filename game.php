@@ -47,6 +47,7 @@ if (!$room_id) {
         fetch(`/api/get_board.php?room_id=${roomId}`)
             .then(res => res.json())
             .then(data => renderBoard(data));
+
     </script>
 
     <script src="board.js"></script>

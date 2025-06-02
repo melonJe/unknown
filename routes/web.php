@@ -1,6 +1,6 @@
 <?php
 use Illuminate\Support\Str;
-use App\Models\Room;
+use Models\Room;
 
 Route::post('/create-room', function () {
     $roomId = substr(md5(uniqid()), 0, 6);

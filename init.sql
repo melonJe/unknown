@@ -24,3 +24,12 @@ CREATE TABLE room_users (
     FOREIGN KEY (room_id) REFERENCES rooms(room_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
+
+CREATE TABLE room_turns (
+    room_id VARCHAR(20) PRIMARY KEY,
+    current_turn_user_id VARCHAR(20) NOT NULL,
+    updated_at TIMESTAMP DEFAULT now(),
+
+    FOREIGN KEY (room_id) REFERENCES rooms(room_id) ON DELETE CASCADE,
+    FOREIGN KEY (current_turn_user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);

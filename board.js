@@ -1,7 +1,11 @@
+let myUserId = null;
 fetch('/api/user/init.php')
     .then(res => res.json())
     .then(user => {
+        myUserId = user.user_id;
+        console.log(myUserId)
         console.log('내 정보:', user);
+        loadRoomUsers(roomId); // 여기에 옮기기
     });
 
 fetch('/api/user/list.php')
@@ -9,23 +13,32 @@ fetch('/api/user/list.php')
     .then(({ users }) => {
         console.log('전체 유저:', users);
     });
-window.addEventListener('DOMContentLoaded', () => {
-    loadRoomUsers(roomId);
-});
+
+const colorMap = {
+    red: '#BF2C47',
+    blue: '#0468BF',
+    yellow: '#D9C24E',
+    green: '#03A678',
+    purple: '#8B65BF',
+    white: 'white'
+};
 
 async function loadRoomUsers(roomId) {
     const res = await fetch(`/api/room/get_room_users.php?room_id=${roomId}`);
     const { users } = await res.json();
 
     for (const user of users) {
-        const { pos_x, pos_y, dice } = user;
-
+        const { pos_x, pos_y, dice, user_id } = user;
         const tileIndex = (pos_y - 1) * 23 + (pos_x - 1);
         const tile = board.children[tileIndex];
-        const diceEl = createDiceElement(dice, tile);
+
+        const isMine = user_id === myUserId;
+        console.log(isMine, user_id, myUserId)
+        const diceEl = createDiceElement(dice, tile, isMine);
         tile.appendChild(diceEl);
     }
 }
+
 
 function renderBoard(data) {
     const board = document.getElementById('board');
@@ -66,7 +79,12 @@ function renderBoard(data) {
     }
 }
 
-function createDiceElement(diceData, tileData) {
+async function canMove() {
+    const res = await fetch(`/api/turn/check.php?room_id=${roomId}`);
+    return res;
+}
+
+function createDiceElement(diceData, tileData, isMine = false) {
     score = tileData.innerHTML
     tileData.innerHTML = ''
     const container = document.createElement('div');
@@ -78,7 +96,7 @@ function createDiceElement(diceData, tileData) {
     for (const face of ['top', 'bottom', 'left', 'right', 'front', 'back']) {
         const f = document.createElement('div');
         f.className = `face ${face}`;
-        f.style.background = diceData[face] || 'white'; // 기본 배경
+        f.style.background = colorMap[diceData[face]] || 'white';
         cube.appendChild(f);
     }
 
@@ -125,6 +143,13 @@ function createDiceElement(diceData, tileData) {
         const dx = dragEnd.x - dragStart.x;
         const dy = dragEnd.y - dragStart.y;
 
+        if (!isMine) { return; }// 남의 주사위는 조작 불가
+
+        if (!await canMove()) {
+            alert('지금은 당신의 턴이 아닙니다.');
+            return;
+        }
+
         if (Math.abs(dx) < 50 && Math.abs(dy) < 50) return; // 너무 짧으면 무시
 
         let direction;
@@ -147,13 +172,14 @@ function createDiceElement(diceData, tileData) {
                 })
             });
 
+            // console.log(result);
             const result = await res.json();
 
             if (!res.ok) {
                 console.error('주사위 이동 실패:', result);
                 return;
             }
-            console.error(result);
+
             // 성공 시 UI 갱신 등 작업
             tileData.innerHTML = score
             document.querySelectorAll('.dice-container').forEach(el => el.remove());

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace Models;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -16,7 +16,7 @@ class RoomUser extends Model
         'room_id',
         'user_id',
         'pos_x',
-        'pos_x',
+        'pos_y',
         'dice',
         'joined_at'
     ];

@@ -3,8 +3,8 @@
 require_once __DIR__ . '/../../lib/constants.php';
 require_once LIB_PATH . '/bootstrap.php';
 
-use App\Models\Room;
-use App\Models\RoomUser;
+use Models\Room;
+use Models\RoomUser;
 
 session_start();
 
@@ -27,11 +27,16 @@ try {
         exit;
     }
 
+    $boardTiles = collect(json_decode($room->board, true)["tiles"]);
+    $startTiles = $boardTiles->where('type', 'start')->values();
+    $startTile = $startTiles->get(rand(0, count($startTiles) - 1));
+    file_put_contents('php://stdout', json_encode($startTile));
+
     $roomuser = RoomUser::create([
         'room_id' => $room->room_id,
         'user_id' => $user_id,
-        'pos_x' => 1,
-        'pos_y' => 1,
+        'pos_x' => $startTile['x'],
+        'pos_y' => $startTile['y'],
         'dice' => [
             'top' => 'red',
             'bottom' => 'blue',

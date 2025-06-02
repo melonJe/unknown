@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../lib/constants.php';
 require_once LIB_PATH . '/bootstrap.php';
 
-use App\Models\Room;
+use Models\Room;
 
 header('Content-Type: application/json');
 

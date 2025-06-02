@@ -3,7 +3,8 @@
     "autoload": {
         "psr-4": {
             "Cabs0\\Unknown\\": "src/",
-            "App\\": "app/"
+            "Models\\": "Models/",
+            "Helpers\\": "Helpers/"
         }
     },
     "authors": [

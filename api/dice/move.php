@@ -3,91 +3,89 @@
 require_once __DIR__ . '/../../lib/constants.php';
 require_once LIB_PATH . '/bootstrap.php';
 
-use App\Models\RoomUser;
+use Models\Room;
+use Models\RoomUser;
+use Models\RoomTurn;
+use Helpers\DiceHelper;
 
 session_start();
 
 $roomId = $_POST['room_id'] ?? null;
-$user_id = $_SESSION['user_id'] ?? null;
 $direction = $_POST['direction'] ?? null;
+$userId = $_SESSION['user_id'] ?? null;
 
-if (!$roomId || !$user_id) {
-    http_response_code(400);
-    echo json_encode(["error" => "room_id {$roomId} and user_id {$user_id} are required"]);
+$turn = RoomTurn::where('room_id', $roomId)->first();
+if ($turn->current_turn_user_id !== $userId) {
+    http_response_code(403);
+    echo json_encode(['error' => 'not your turn']);
     exit;
 }
 
-$roomUser = RoomUser::where('room_id', $roomId)
-    ->where('user_id', $user_id)
-    ->firstOrFail();
-
-$dice = $roomUser->dice ?? null; // 기본 주사위 상태
-
-if (!$dice) {
+if (!$roomId || !$userId) {
     http_response_code(400);
-    echo json_encode(["error" => "not found dice"]);
+    echo json_encode(["error" => "room_id or user_id missing"]);
     exit;
 }
-$x = $roomUser->pos_x;
-$y = $roomUser->pos_y;
 
+$room = Room::where('room_id', $roomId)->firstOrFail();
+$boardTiles = collect(json_decode($room->board, true)['tiles']);
+
+// $roomUsers = RoomUser::where('room_id', $roomId)->get()->keyBy(fn($u) => "{$u->pos_x},{$u->pos_y}")->all();
+
+$currentUser = RoomUser::where('room_id', $roomId)->where('user_id', $userId)->firstOrFail();
+file_put_contents('php://stdout', print_r($userId, true));
+if (!$currentUser) {
+    http_response_code(404);
+    echo json_encode(['error' => 'user not on board']);
+    exit;
+}
+
+$x = $currentUser->pos_x;
+$y = $currentUser->pos_y;
+
+$dx = 0;
+$dy = 0;
 switch ($direction) {
     case 'up':
-        $y -= 1;
-        $dice = [
-            'top' => $dice['front'],
-            'bottom' => $dice['back'],
-            'left' => $dice['left'],
-            'right' => $dice['right'],
-            'front' => $dice['bottom'],
-            'back' => $dice['top'],
-        ];
+        $dy = -1;
         break;
-
     case 'down':
-        $y += 1;
-        $dice = [
-            'top' => $dice['back'],
-            'bottom' => $dice['front'],
-            'left' => $dice['left'],
-            'right' => $dice['right'],
-            'front' => $dice['top'],
-            'back' => $dice['bottom'],
-        ];
+        $dy = 1;
         break;
-
     case 'left':
-        $x -= 1;
-        $dice = [
-            'top' => $dice['top'],
-            'bottom' => $dice['bottom'],
-            'left' => $dice['front'],
-            'right' => $dice['back'],
-            'front' => $dice['right'],
-            'back' => $dice['left'],
-        ];
+        $dx = -1;
         break;
-
     case 'right':
-        $x += 1;
-        $dice = [
-            'top' => $dice['top'],
-            'bottom' => $dice['bottom'],
-            'left' => $dice['back'],
-            'right' => $dice['front'],
-            'front' => $dice['left'],
-            'back' => $dice['right'],
-        ];
+        $dx = 1;
         break;
+    default:
+        http_response_code(400);
+        echo json_encode(['error' => 'invalid direction']);
+        exit;
 }
 
-$roomUser->pos_x = $x;
-$roomUser->pos_y = $y;
-$roomUser->dice = $dice;
-$roomUser->save();
+$nx = $x + $dx;
+$ny = $y + $dy;
+
+// if (!DiceHelper::isValidTile($nx, $ny, $boardTiles)) {
+//     http_response_code(400);
+//     echo json_encode(['error' => 'destination invalid']);
+//     exit;
+// }
+
+// if (!DiceHelper::tryPush($nx, $ny, $dx, $dy, $boardTiles, $roomUsers)) {
+//     http_response_code(400);
+//     echo json_encode(['error' => 'cannot push into invalid tile']);
+//     exit;
+// }
+
+// unset($roomUsers["{$currentUser->pos_x},{$currentUser->pos_y}"]);
+
+$currentUser = DiceHelper::move(clone $currentUser, $dx, $dy);
+$currentUser->save();
 
 echo json_encode([
     'success' => true,
-    'new_position' => ['x' => $x, 'y' => $y],
-    'dice' => $dice
+    'new_position' => ['x' => $nx, 'y' => $ny],
+    'dice' => $currentUser->dice
 ]);

@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../../lib/constants.php';
 require_once LIB_PATH . '/bootstrap.php';
 
-use App\Models\RoomUser;
+use Models\RoomUser;
 
 try {
     session_start();
