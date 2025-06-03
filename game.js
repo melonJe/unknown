@@ -1,5 +1,5 @@
 let myUserId = null;
-fetch('/api/user/init.php')
+fetch('/api/user/register_user.php')
     .then(res => res.json())
     .then(user => {
         myUserId = user.user_id;
@@ -80,7 +80,7 @@ function renderBoard(data) {
 }
 
 async function canMove() {
-    const res = await fetch(`/api/turn/check.php?room_id=${roomId}`);
+    const res = await fetch(`/api/turn/is_my_turn.php?room_id=${roomId}`);
     return res;
 }
 

@@ -2,30 +2,32 @@
 
 require_once __DIR__ . '/../../lib/constants.php';
 require_once LIB_PATH . '/bootstrap.php';
-
-$defaultBoard = file_get_contents(DATA_PATH . '/board.json');
-
-use Models\Room;
+require_once LIB_PATH . '/redis.php';
 
 try {
-    // 고유한 방 ID 생성 (6자리 해시)
+    $redis = getRedis();
+
+    // 방 ID 및 보드 데이터
     $roomId = substr(md5(uniqid()), 0, 10);
+    $defaultBoard = json_decode(file_get_contents(DATA_PATH . '/board.json'), true);
 
-    // 기본 보드 데이터 로드 (JSON string)
-    $defaultBoard = file_get_contents(DATA_PATH . '/board.json');
+    $roomKey = "room:{$roomId}";
+    $createdAt = date('Y-m-d H:i:s');
 
-    // 방 생성
-    $room = Room::create([
+    $redis->hmset($roomKey, [
         'room_id' => $roomId,
-        'board' => $defaultBoard,
+        'board' => json_encode($defaultBoard, JSON_UNESCAPED_UNICODE),
+        'created_at' => $createdAt,
+        'updated_at' => $createdAt,
     ]);
+    $redis->expire($roomKey, 60 * 60 * 24);
 
-    echo json_encode(["room_id" => $room->room_id]);
+    echo json_encode(["room_id" => $roomId]);
 } catch (Exception $e) {
     file_put_contents(BASE_PATH . '/debug.log', "[ERROR] " . $e->getMessage() . "\n", FILE_APPEND);
     http_response_code(500);
     echo json_encode([
-        "error" => "DB error",
+        "error" => "Redis error",
         "message" => $e->getMessage()
     ]);
 }

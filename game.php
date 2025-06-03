@@ -19,16 +19,6 @@ if (!$room_id) {
     <h1>방 ID: <?= htmlspecialchars($room_id) ?></h1>
     <button onclick="location.href='index.php'">🔙 대기실로</button>
     <div id="board">
-        <div class="dice-container">
-            <div class="dice" id="dice">
-                <div class="face front"></div>
-                <div class="face back"></div>
-                <div class="face right"></div>
-                <div class="face left"></div>
-                <div class="face top"></div>
-                <div class="face bottom"></div>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -50,7 +40,7 @@ if (!$room_id) {
 
     </script>
 
-    <script src="board.js"></script>
+    <script src="game.js"></script>
 </body>
 
 </html>

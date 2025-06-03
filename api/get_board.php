@@ -2,8 +2,7 @@
 
 require_once __DIR__ . '/../lib/constants.php';
 require_once LIB_PATH . '/bootstrap.php';
-
-use Models\Room;
+require_once LIB_PATH . '/redis.php';
 
 header('Content-Type: application/json');
 
@@ -11,16 +10,19 @@ $roomId = $_GET['room_id'] ?? null;
 
 if (!$roomId) {
     http_response_code(400);
-    echo json_encode(["error" => "room_id is required"]);
+    echo json_encode(["error" => "room_id is required"], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-$room = Room::where('room_id', $roomId)->first();
+$redis = getRedis();
+$roomKey = "room:{$roomId}";
+$boardJson = $redis->hget($roomKey, 'board');
 
-if (!$room) {
+if (!$boardJson) {
     http_response_code(404);
-    echo json_encode(["error" => "room not found"]);
+    echo json_encode(["error" => "room not found"], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-echo $room->board;
+// board는 이미 JSON 문자열이므로 바로 출력
+echo $boardJson;

@@ -2,108 +2,62 @@
 
 namespace Helpers;
 
-use Illuminate\Support\Collection;
-use Models\RoomUser;
-
 class DiceHelper
 {
-    public static function move($user, $dx, $dy): RoomUser
+    // 주사위 전개도 갱신
+    public static function roll(array $dice, string $direction): array
     {
-        $x = $user->pos_x;
-        $y = $user->pos_y;
-
-        $nx = $x + $dx;
-        $ny = $y + $dy;
-
-        $dice = $user->dice;
-        if ($dx !== 0) {
-            $dice = match ($dx) {
-                -1 => [
-                    'top' => $dice['top'],
-                    'bottom' => $dice['bottom'],
-                    'left' => $dice['front'],
-                    'right' => $dice['back'],
-                    'front' => $dice['right'],
-                    'back' => $dice['left'],
-                ],
-                1 => [
-                    'top' => $dice['top'],
-                    'bottom' => $dice['bottom'],
-                    'left' => $dice['back'],
-                    'right' => $dice['front'],
-                    'front' => $dice['left'],
-                    'back' => $dice['right'],
-                ],
-            };
-        } elseif ($dy !== 0) {
-            $dice = match ($dy) {
-                -1 => [
+        // top/bottom/left/right/front/back
+        switch ($direction) {
+            case 'up':
+                return [
                     'top' => $dice['front'],
                     'bottom' => $dice['back'],
                     'left' => $dice['left'],
                     'right' => $dice['right'],
                     'front' => $dice['bottom'],
                     'back' => $dice['top'],
-                ],
-                1 => [
+                ];
+            case 'down':
+                return [
                     'top' => $dice['back'],
                     'bottom' => $dice['front'],
                     'left' => $dice['left'],
                     'right' => $dice['right'],
                     'front' => $dice['top'],
                     'back' => $dice['bottom'],
-                ],
-            };
+                ];
+            case 'left':
+                return [
+                    'top' => $dice['top'],
+                    'bottom' => $dice['bottom'],
+                    'left' => $dice['front'],
+                    'right' => $dice['back'],
+                    'front' => $dice['right'],
+                    'back' => $dice['left'],
+                ];
+            case 'right':
+                return [
+                    'top' => $dice['top'],
+                    'bottom' => $dice['bottom'],
+                    'left' => $dice['back'],
+                    'right' => $dice['front'],
+                    'front' => $dice['left'],
+                    'back' => $dice['right'],
+                ];
+            default:
+                return $dice;
         }
-
-
-        $user->pos_x = $nx;
-        $user->pos_y = $ny;
-        $user->dice = $dice;
-
-        return $user;
     }
 
-
-    public static function isValidTile(int $x, int $y, Collection $tiles): bool
+    // 특정 위치가 유효한 타일(이동 가능)인지 검사
+    public static function isValidTile(int $x, int $y, array $tiles): bool
     {
-        return (bool) $tiles->firstWhere(
-            fn($t) =>
-            is_array($t) &&
-            isset($t['x'], $t['y'], $t['type']) &&
-            $t['x'] === $x &&
-            $t['y'] === $y &&
-            $t['type'] !== 'start'
-        );
-    }
-
-    /**
-     * @param array<string, RoomUser> $users
-     */
-    public static function tryPush(int $x, int $y, int $dx, int $dy, Collection $tiles, array &$users): bool
-    {
-        $targetKey = "{$x},{$y}";
-
-        if (!isset($users[$targetKey])) {
-            return true;
+        foreach ($tiles as $tile) {
+            if ($tile['x'] === $x && $tile['y'] === $y && $tile['type'] !== 'start') {
+                return true;
+            }
         }
-
-        $nextX = $x + $dx;
-        $nextY = $y + $dy;
-        $nextKey = "{$nextX},{$nextY}";
-
-        if (!self::isValidTile($nextX, $nextY, $tiles)) {
-            return false;
-        }
-
-        if (!self::tryPush($nextX, $nextY, $dx, $dy, $tiles, $users)) {
-            return false;
-        }
-
-        $pushedUser = $users[$targetKey];
-        unset($users[$targetKey]);
-        $users[$nextKey] = self::move($pushedUser, $dx, $dy);
-
-        return true;
+        return false;
     }
 }

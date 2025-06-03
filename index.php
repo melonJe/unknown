@@ -38,7 +38,7 @@
       credentials: 'include',
     });
 
-    fetch('/api/user/init.php')
+    fetch('/api/user/register_user.php')
       .then(res => res.json())
       .then(user => {
         console.log('내 정보:', user);
