@@ -46,12 +46,16 @@
 
     fetch('/api/user/list.php')
       .then(res => res.json())
-      .then(({ users }) => {
+      .then(({
+        users
+      }) => {
         console.log('전체 유저:', users);
       });
 
     async function createRoom() {
-      const res = await fetch('/api/room/create.php', { method: 'POST' });
+      const res = await fetch('/api/room/create.php', {
+        method: 'POST'
+      });
       const data = await res.json();
       location.href = `game.php?room_id=${data.room_id}`;
     }

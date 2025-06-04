@@ -1,17 +1,16 @@
 <?php
 
 require_once __DIR__ . '/../../lib/constants.php';
-require_once LIB_PATH . '/bootstrap.php';
 require_once LIB_PATH . '/redis.php';
 
 $redis = getRedis();
 
-// 모든 방 목록 가져오기 (Set으로 관리한다고 가정: SADD rooms {room_id})
+// 모든 방 목록 가져오기
 $roomIds = $redis->smembers('rooms');
 $keptRoomIds = [];
-
+file_put_contents('php://stdout', json_encode($roomIds));
 foreach ($roomIds as $roomId) {
-    // 각 방에 유저가 있는지 확인 (Set: room:{room_id}:users)
+    // 각 방에 유저가 있는지 확인
     $userCount = $redis->scard("room:{$roomId}:users");
     if ($userCount > 0) {
         $keptRoomIds[] = $roomId;
@@ -20,19 +19,17 @@ foreach ($roomIds as $roomId) {
     // 유저 없으면 방 정보 삭제
     $redis->del("room:{$roomId}");
     $redis->srem('rooms', $roomId);
-    // (옵션) 관련된 다른 키(턴, 기록 등)도 함께 삭제 가능
     $redis->del("room:{$roomId}:turn");
-    // (옵션) room:{roomId}:user:* 모두 삭제하려면 scan + del 필요
+
+    // room:{roomId}:users:* 형식의 모든 키 삭제 (scan + del)
     $pattern = "room:{$roomId}:user:*";
     $it = null;
-    while ($keys = $redis->scan($it, $pattern)) {
-        foreach ($keys as $key) {
-            $redis->del($key);
+    do {
+        list($it, $keys) = $redis->scan($it, ['match' => $pattern, 'count' => 100]);
+        if (!empty($keys)) {
+            $redis->del(...$keys);
         }
-        if ($it === 0) {
-            break;
-        }
-    }
+    } while ($it != 0 && $it !== null);
 }
 
 echo json_encode(['rooms' => $keptRoomIds], JSON_UNESCAPED_UNICODE);

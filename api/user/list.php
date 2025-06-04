@@ -1,7 +1,6 @@
 <?php
 
 require_once __DIR__ . '/../../lib/constants.php';
-require_once LIB_PATH . '/bootstrap.php';
 require_once LIB_PATH . '/redis.php';
 
 $redis = getRedis();
