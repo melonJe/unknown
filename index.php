@@ -33,52 +33,77 @@
   </ul>
 
   <script>
-    fetch(`/api/room/delete_room_user.php`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-
+    // 사용자 정보 로드 (기존 register_user.php 사용)
+    let myUserId;
     fetch('/api/user/register_user.php')
       .then(res => res.json())
       .then(user => {
+        myUserId = user.user_id;
         console.log('내 정보:', user);
       });
+    // 1. 웹소켓 연결
+    // 서버 주소/포트는 환경에 따라 수정 (예: ws://localhost:8080)
+    const ws = new WebSocket('ws://localhost:8080');
 
-    fetch('/api/user/list.php')
-      .then(res => res.json())
-      .then(({
-        users
-      }) => {
-        console.log('전체 유저:', users);
-      });
+    ws.onopen = () => {
+      console.log('웹소켓 연결됨');
+      ws.send(JSON.stringify({
+        action: "get_room_list"
+      }));
+    };
 
-    async function createRoom() {
-      const res = await fetch('/api/room/create.php', {
-        method: 'POST'
-      });
-      const data = await res.json();
-      location.href = `game.php?room_id=${data.room_id}`;
-    }
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      console.log(msg.type)
+      // 서버에서 방 목록 정보 직접 push
+      switch (msg.type) {
+        case 'room_list':
+          console.log(msg.rooms)
+          renderRoomList(msg.rooms);
+          break
 
-    async function loadRooms() {
-      const res = await fetch('/api/room/list.php');
-      const data = await res.json();
+        case 'room_created':
+          location.href = `game.php?room_id=${msg.room_id}`;
+          break
+
+        case 'room_list_changed':
+          ws.send(JSON.stringify({
+            action: "get_room_list"
+          }));
+          break
+      };
+    };
+
+    ws.onclose = () => {
+      console.log('웹소켓 연결 끊김');
+    };
+
+    ws.onerror = (e) => {
+      console.log('웹소켓 오류:', e);
+      ws.close();
+    };
+
+    function renderRoomList(rooms) {
       const list = document.getElementById('room-list');
       list.innerHTML = '';
 
-      if (data.rooms.length === 0) {
+      if (!rooms || rooms.length === 0) {
         list.innerHTML = '<li>현재 참여 가능한 방이 없습니다.</li>';
         return;
       }
-
-      data.rooms.forEach(roomId => {
+      rooms.forEach(roomId => {
         const li = document.createElement('li');
         li.innerHTML = `<a href="game.php?room_id=${roomId}">▶ 방 #${roomId}</a>`;
         list.appendChild(li);
       });
     }
 
-    loadRooms();
+    async function createRoom() {
+      ws.send(JSON.stringify({
+        action: "create_room",
+        user_id: myUserId
+      }));
+    }
   </script>
 </body>
 

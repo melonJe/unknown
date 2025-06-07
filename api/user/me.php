@@ -3,12 +3,13 @@
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
-    http_response_code(401);
-    echo json_encode(["error" => "not initialized"], JSON_UNESCAPED_UNICODE);
+    $_SESSION['user_id'] = substr(md5(uniqid('', true)), 0, 10);
+    echo json_encode([
+        'user_id' => $_SESSION['user_id']
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 echo json_encode([
-    'user_id' => $_SESSION['user_id'],
-    'nickname' => $_SESSION['nickname']
+    'user_id' => $_SESSION['user_id']
 ], JSON_UNESCAPED_UNICODE);

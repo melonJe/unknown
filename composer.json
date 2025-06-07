@@ -3,7 +3,8 @@
     "autoload": {
         "psr-4": {
             "Cabs0\\Unknown\\": "src/",
-            "Helpers\\": "Helpers/"
+            "Helpers\\": "Helpers/",
+            "Service\\": "Service/"
         }
     },
     "authors": [
@@ -14,7 +15,8 @@
     ],
     "require": {
         "vlucas/phpdotenv": "^5.6",
-        "predis/predis": "^3.0"
+        "predis/predis": "^3.0",
+        "workerman/workerman": "^5.1"
     },
     "require-dev": {
         "squizlabs/php_codesniffer": "^3.13"

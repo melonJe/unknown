@@ -1,5 +1,4 @@
 :root {
-  --cols: 23;
   --tile-size: calc(90vw / var(--cols));
 }
 
@@ -92,7 +91,7 @@ body {
   height: 100%;
   border: 2px solid rgba(0, 0, 0, 1);
   box-sizing: border-box;
-  opacity: 0.95;
+  opacity: 0.85;
   backface-visibility: visible;
   display: flex;
   align-items: center;
@@ -102,25 +101,57 @@ body {
 /* translateZ: tile-size / 2 */
 
 .front {
-  transform: rotateY(0deg) translateZ(15px);
+  transform: rotateY(0deg) translateZ(calc(var(--tile-size) * 0.35));
 }
 
 .back {
-  transform: rotateY(180deg) translateZ(15px);
+  transform: rotateY(180deg) translateZ(calc(var(--tile-size) * 0.35));
 }
 
 .right {
-  transform: rotateY(90deg) translateZ(15px);
+  transform: rotateY(90deg) translateZ(calc(var(--tile-size) * 0.35));
 }
 
 .left {
-  transform: rotateY(-90deg) translateZ(15px);
+  transform: rotateY(-90deg) translateZ(calc(var(--tile-size) * 0.35));
 }
 
 .top {
-  transform: rotateX(90deg) translateZ(15px);
+  transform: rotateX(90deg) translateZ(calc(var(--tile-size) * 0.35));
 }
 
 .bottom {
-  transform: rotateX(-90deg) translateZ(15px);
+  transform: rotateX(-90deg) translateZ(calc(var(--tile-size) * 0.35));
+}
+
+/* 토스트 컨테이너 */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+}
+
+/* 개별 토스트 */
+.toast {
+  margin-bottom: 10px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 4px;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* 보이기 상태 */
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 숨기기 상태 */
+.toast.hide {
+  opacity: 0;
+  transform: translateY(-20px);
 }
