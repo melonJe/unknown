@@ -45,7 +45,7 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
             $conn->send(json_encode(['type' => 'room_created', 'room_id' => $roomId]));
             break;
         case 'join_room':
-            user::joinGame($msg['user_id'], $msg['room_id']);
+            Room::joinGame($msg['user_id'], $msg['room_id']);
             $conn->send(json_encode(['type' => 'board_data', 'board' => Room::getBoard($msg['room_id'])]));
             $conn->send(json_encode(['type' => 'dices_data', 'dices' => user::getDices($msg['room_id'])]));
             break;
@@ -66,12 +66,13 @@ $ws_worker->onClose = function (TcpConnection $conn) use (&$ws_worker) {
     unset($ws_worker->connections[$conn->id]);
     $roomId = $conn->roomId;
     $userId = $conn->userId;
+    // echo "{$userId}\n";
+    User::deleteUserData($userId, $roomId);
+    if (!empty($roomId)) {
 
-    if (!empty($userId) && !empty($roomId)) {
-        User::deleteUserData($userId, $roomId);
-    }
-    foreach ($ws_worker->connections as $c) {
-        $c->send(json_encode(['type' => 'user_out', 'msg' => "{$userId}님의 연결이 끊겼습니다.", 'dices' => user::getDices($roomId)]));
+        foreach ($ws_worker->connections as $c) {
+            $c->send(json_encode(['type' => 'user_out', 'msg' => "{$userId}님의 연결이 끊겼습니다.", 'dices' => user::getDices($roomId)]));
+        }
     }
 };
 

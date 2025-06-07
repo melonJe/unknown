@@ -16,15 +16,11 @@ if (!isset($userId)) {
 // Redis에 유저 정보 저장 (Hash)
 $userKey = "user:{$userId}";
 $now = date('Y-m-d H:i:s');
-
-$redis->hmset($userKey, [
-    'user_id' => $userId
-]);
+$redis->hmset($userKey, ['user_id' => $userId]);
 $redis->expire($userKey, 1800);
 
 // (옵션) 전체 유저 Set에 등록
 $redis->sadd('users', $userId);
-$redis->expire("users", 60 * 60 * 24);
 
 echo json_encode([
     'user_id' => $userId,

@@ -33,10 +33,7 @@ class Room
             foreach ($roomIds as $roomId) {
                 $userCount = $redis->scard("room:{$roomId}:users");
                 $roomData = $redis->hgetall("room:{$roomId}");
-                if ($userCount !== 0) {
-                    $keptRoomIds[] = $roomId;
-                    continue;
-                } else if ($roomData["updated_at"] < $fiveMinutesAgo) {
+                if ($userCount === 0 && $roomData["updated_at"] < $fiveMinutesAgo) {
                     $redis->srem('rooms', $roomId);
                     $redis->del("room:{$roomId}");
                     $redis->del("room:{$roomId}:turn");
@@ -49,6 +46,9 @@ class Room
                             $redis->del($keys);
                         }
                     } while ($subIt != 0 && $subIt !== null);
+                } else {
+                    $keptRoomIds[] = $roomId;
+                    continue;
                 }
             }
         } while ($it != 0 && $it !== null);
@@ -114,5 +114,61 @@ class Room
         $board = json_decode($roomData['board'] ?? '', true);
 
         return $board;
+    }
+
+    public static function joinGame($userId, $roomId): void
+    {
+        if (!$roomId || !$userId) {
+            http_response_code(400);
+            exit;
+        }
+
+        $redis  = getRedis();
+        $redis->sadd("room:{$roomId}:users", $userId);
+        $redis->expire("room:{$roomId}:users", 60 * 60 * 24);
+        $userKey = "room:{$roomId}:user:{$userId}";
+        $userData = $redis->hgetall($userKey);
+
+        if (!empty($userData)) {
+            $redis->expire($userKey, 1800);
+            return;
+        }
+
+        $roomKey = "room:{$roomId}";
+        $roomData = $redis->hgetall($roomKey);
+
+        if (empty($roomData)) {
+            http_response_code(404);
+            exit;
+        }
+
+        $board = json_decode($roomData['board'] ?? '', true);
+        $tiles = $board['tiles'] ?? [];
+
+        $startTiles = array_values(array_filter($tiles, fn($t) => ($t['type'] ?? '') === 'start'));
+
+        if (empty($startTiles)) {
+            http_response_code(500);
+            exit;
+        }
+
+        $startTile = $startTiles[random_int(0, count($startTiles) - 1)];
+
+        $diceArr = [
+            'top'    => 'red',
+            'bottom' => 'blue',
+            'left'   => 'green',
+            'right'  => 'yellow',
+            'front'  => 'white',
+            'back'   => 'purple',
+        ];
+
+        $redis->hmset($userKey, [
+            'pos_x'     => $startTile['x'],
+            'pos_y'     => $startTile['y'],
+            'dice'      => json_encode($diceArr),
+            'joined_at' => date('Y-m-d H:i:s'),
+        ]);
+        $redis->expire($userKey, 1800);
     }
 }

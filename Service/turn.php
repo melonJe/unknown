@@ -11,7 +11,7 @@ class Turn
     /**
      * 현재 사용자가 자신의 차례인지 확인하고 JSON으로 결과 반환
      */
-    public static function isMyTurn(): bool
+    public static function isMyTurn(string $roomId): bool
     {
         $redis = getRedis();
 
@@ -26,8 +26,6 @@ class Turn
             echo json_encode(['error' => 'Not logged in'], JSON_UNESCAPED_UNICODE);
             return false;
         }
-
-        $roomId   = User::getRoomIdByUser($myUserId);
 
         if (!$roomId) {
             http_response_code(400);

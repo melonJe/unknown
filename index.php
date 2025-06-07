@@ -35,53 +35,51 @@
   <script>
     // 사용자 정보 로드 (기존 register_user.php 사용)
     let myUserId;
+    let ws;
     fetch('/api/user/register_user.php')
       .then(res => res.json())
       .then(user => {
         myUserId = user.user_id;
-        console.log('내 정보:', user);
-      });
-    // 1. 웹소켓 연결
-    // 서버 주소/포트는 환경에 따라 수정 (예: ws://localhost:8080)
-    const ws = new WebSocket('ws://localhost:8080');
-
-    ws.onopen = () => {
-      console.log('웹소켓 연결됨');
-      ws.send(JSON.stringify({
-        action: "get_room_list"
-      }));
-    };
-
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      console.log(msg.type)
-      // 서버에서 방 목록 정보 직접 push
-      switch (msg.type) {
-        case 'room_list':
-          console.log(msg.rooms)
-          renderRoomList(msg.rooms);
-          break
-
-        case 'room_created':
-          location.href = `game.php?room_id=${msg.room_id}`;
-          break
-
-        case 'room_list_changed':
+        ws = new WebSocket("ws://localhost:8080/?&userId=" + myUserId);
+        ws.onopen = () => {
+          console.log('웹소켓 연결됨');
           ws.send(JSON.stringify({
             action: "get_room_list"
           }));
-          break
-      };
-    };
+        };
 
-    ws.onclose = () => {
-      console.log('웹소켓 연결 끊김');
-    };
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          console.log(msg.type)
+          // 서버에서 방 목록 정보 직접 push
+          switch (msg.type) {
+            case 'room_list':
+              console.log(msg.rooms)
+              renderRoomList(msg.rooms);
+              break
 
-    ws.onerror = (e) => {
-      console.log('웹소켓 오류:', e);
-      ws.close();
-    };
+            case 'room_created':
+              location.href = `game.php?room_id=${msg.room_id}`;
+              break
+
+            case 'room_list_changed':
+              ws.send(JSON.stringify({
+                action: "get_room_list"
+              }));
+              break
+          };
+        };
+
+        ws.onclose = () => {
+          console.log('웹소켓 연결 끊김');
+        };
+
+        ws.onerror = (e) => {
+          console.log('웹소켓 오류:', e);
+          ws.close();
+        };
+      });
+
 
     function renderRoomList(rooms) {
       const list = document.getElementById('room-list');

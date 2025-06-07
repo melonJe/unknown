@@ -39,8 +39,6 @@ if (!$room_id) {
         (async function() {
             try {
                 myUserId = await getUserId();
-                console.log("ws://localhost:8080/?roomId=" + roomId + "&userId=" + myUserId);
-
                 ws = new WebSocket("ws://localhost:8080/?roomId=" + roomId + "&userId=" + myUserId);
 
                 ws.onopen = () => {
