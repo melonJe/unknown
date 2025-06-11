@@ -37,14 +37,6 @@ class User
         }
 
         $redis  = getRedis();
-        $roomKey = "room:{$roomId}";
-        $roomData = $redis->hgetall($roomKey);
-
-        if (empty($roomData)) {
-            http_response_code(404);
-            return ['error' => 'room not found'];
-            exit;
-        }
 
         $subIt = 0;
         do {

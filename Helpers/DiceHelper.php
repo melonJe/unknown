@@ -53,10 +53,8 @@ class DiceHelper
     // 특정 위치가 유효한 타일(이동 가능)인지 검사
     public static function isValidTile(int $x, int $y, array $tiles): bool
     {
-        foreach ($tiles as $tile) {
-            if ($tile['x'] === $x && $tile['y'] === $y && $tile['type'] !== 'start') {
-                return true;
-            }
+        if ($tiles[$x][$y]['type'] !== 'start') {
+            return true;
         }
         return false;
     }

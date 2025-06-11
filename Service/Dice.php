@@ -65,8 +65,7 @@ class Dice
             http_response_code(404);
             return ["error" => "room not found"];
         }
-        $board = json_decode($roomData['board'], true);
-        $tiles = $board['tiles'] ?? [];
+        $tiles = json_decode($roomData['tiles'], true);
 
         $userIds = $redis->smembers("room:{$roomId}:users");
         $userStates = [];

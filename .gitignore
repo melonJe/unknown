@@ -4,6 +4,7 @@ composer.phar
 .phpcs.xml
 .vscode*
 debug.log
+.idea
 
 README.md
 workerman.log

@@ -80,10 +80,22 @@ class Room
         $roomKey = "room:{$roomId}";
         $createdAt = date('Y-m-d H:i:s');
 
+        $tileMap = null;
+        foreach ($defaultBoard["tiles"] as $tile) {
+            $tileMap[$tile['x']][$tile['y']] = [
+                "type" => $tile["type"],
+                "score" => $tile["score"],
+                "score" => $tile["score"],
+                "color" => isset($tile['color']) && $tile['color'] !== null ? $tile['color'] : null,
+            ];
+        }
+
         $redis->hmset($roomKey, [
             'room_id' => $roomId,
-            'board' => json_encode($defaultBoard, JSON_UNESCAPED_UNICODE),
             'state' => false,
+            'width' => $defaultBoard['width'],
+            'height' => $defaultBoard['height'],
+            'tiles' => json_encode($tileMap, JSON_UNESCAPED_UNICODE),
             'created_at' => $createdAt,
             'updated_at' => $createdAt,
         ]);
@@ -111,9 +123,24 @@ class Room
             exit;
         }
 
-        $board = json_decode($roomData['board'] ?? '', true);
+        $tiles = [];
+        foreach (json_decode($roomData['tiles'], true) as $xKey => $row) {
+            foreach ($row as $yKey => $tile) {
+                $tiles[] = [
+                    "x" => $xKey,
+                    "y" => $yKey,
+                    "type" => $tile['type'],
+                    "score" => $tile['score'],
+                    "color" => isset($tile['color']) && $tile['color'] !== null ? $tile['color'] : null,
+                ];
+            }
+        }
 
-        return $board;
+        return [
+            "tiles" => $tiles,
+            "width" => $roomData['width'],
+            "height" => $roomData['height'],
+        ];
     }
 
     public static function joinGame($userId, $roomId): void
@@ -142,10 +169,16 @@ class Room
             exit;
         }
 
-        $board = json_decode($roomData['board'] ?? '', true);
-        $tiles = $board['tiles'] ?? [];
+        $tiles = json_decode($roomData['tiles'] ?? '', true);
 
-        $startTiles = array_values(array_filter($tiles, fn($t) => ($t['type'] ?? '') === 'start'));
+        $startTiles = [];
+        foreach ($tiles as $xKey => $row) {
+            foreach ($row as $yKey => $tile) {
+                if (($tile['type'] ?? '') === 'start') {
+                    $startTiles[] = ['x' => $xKey, 'y' => $yKey];
+                }
+            }
+        }
 
         if (empty($startTiles)) {
             http_response_code(500);

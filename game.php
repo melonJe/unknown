@@ -58,7 +58,6 @@ if (!$room_id) {
                         case 'board_data':
                             // 초기 보드 렌더링
                             boardData = msg.board
-                            renderBoard(boardData);
                             break;
                         case 'user_out':
 
@@ -199,7 +198,6 @@ if (!$room_id) {
 
         // 주사위 DOM 생성 및 드래그 이벤트 처리 (기존 createDiceElement 함수 수정)
         function createDiceElement(diceData, tileData, isMine = false) {
-            const originalScore = tileData.textContent; // 점수 저장
             tileData.textContent = '';
 
             const container = document.createElement('div');
@@ -224,7 +222,7 @@ if (!$room_id) {
             let dragStart = null;
 
             container.addEventListener('mousedown', (e) => {
-                if (!isMine) return;
+                // if (!isMine) return;
                 dragging = true;
                 startX = e.clientX;
                 startY = e.clientY;
@@ -256,6 +254,7 @@ if (!$room_id) {
                 cube.style.transform = `rotateX(0deg) rotateY(0deg)`;
                 rotX = 0;
                 rotY = 0;
+                if (!isMine) return;
 
                 if (!dragStart) return;
                 const dx = e.clientX - dragStart.x;
