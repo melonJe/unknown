@@ -4,7 +4,9 @@
         "psr-4": {
             "Cabs0\\Unknown\\": "src/",
             "Helpers\\": "Helpers/",
-            "Service\\": "Service/"
+            "Service\\": "Service/",
+            "DTO\\": "DTO/",
+            "DAO\\": "DAO/"
         }
     },
     "authors": [

@@ -14,18 +14,15 @@ class Rule
      * 1. 말 윗면이 흰색이거나 말이 흰색 칸에 있는지
      * @return bool
      */
-    public function isExileCondition($board, $user): bool
+    public function isExileCondition($roomData, $userData): bool
     {
-        $topColor = $user["dice"]["front"];
-        $tileMap = [];
-        // foreach ($tiles as $board["tile"]) {
-        //     $key = "{$tile['x']},{$tile['y']}";
-        //     $tileMap[$key] = $tile;
-        // }
-        $key = "{$user["pos_x"]},{$user["pos_y"]}";
-        $cellColor =  isset($board[$key]) && isset($board[$key]['color'])
-            ? $board[$key]['color']
-            : null;  // 없으면 null 반환
+        $topColor = $userData["dice"]["front"];
+
+        $x = $userData['pos_x'];
+        $y = $userData['pos_y'];
+        $cell = $roomData[$x][$y] ?? [];
+        $cellColor = $cell['color'] ?? null;
+
         return $topColor === 'white' || $cellColor === 'white';
     }
 
@@ -33,7 +30,7 @@ class Rule
      * 2. 추방 징표가 3개인지
      * @return bool
      */
-    public function isThreeExileMarks($player): bool
+    public function isThreeExileMarks($userData): bool
     {
         return $player->getExileMarkCount() >= 3;
     }

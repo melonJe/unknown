@@ -17,7 +17,7 @@ if (!isset($userId)) {
 $userKey = "user:{$userId}";
 $now = date('Y-m-d H:i:s');
 $redis->hmset($userKey, ['user_id' => $userId]);
-$redis->expire($userKey, 1800);
+$redis->expire($userKey, 60 * 60 * 24);
 
 // (옵션) 전체 유저 Set에 등록
 $redis->sadd('users', $userId);

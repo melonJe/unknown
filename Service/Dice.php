@@ -48,9 +48,9 @@ class Dice
         }
 
         $redis = getRedis();
-        $redis->expire("user:{$userId}", 1800);
+        $redis->expire("user:{$userId}", 60 * 60 * 24);
         $roomKey = "room:{$roomId}";
-        $redis->expire($roomKey, 1800);
+        $redis->expire($roomKey, 60 * 60 * 24);
         $roomData = $redis->hgetall($roomKey);
 
 
@@ -134,7 +134,7 @@ class Dice
                 'pos_y' => $state['pos_y'],
                 'dice'  => json_encode($state['dice'], JSON_UNESCAPED_UNICODE),
             ]);
-            $redis->expire("room:{$roomId}:user:{$uid}", 1800);
+            $redis->expire("room:{$roomId}:user:{$uid}", 60 * 60 * 24);
         }
 
         // 턴 넘기기 (확장용, 주석)

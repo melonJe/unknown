@@ -10,6 +10,15 @@ use Exception;
 
 class Room
 {
+    public static function getRoomData($roomId)
+    {
+        $redis  = getRedis();
+        $roomKey = "room:{$roomId}";
+        $redis->expire($roomKey, 60 * 60 * 24);
+        $redis->expire("room:{$roomId}:users", 60 * 60 * 24);
+        return $redis->hgetall($roomKey);
+    }
+
     public static function cleanupRooms(): array
     {
         $redis = getRedis();
@@ -85,7 +94,6 @@ class Room
             $tileMap[$tile['x']][$tile['y']] = [
                 "type" => $tile["type"],
                 "score" => $tile["score"],
-                "score" => $tile["score"],
                 "color" => isset($tile['color']) && $tile['color'] !== null ? $tile['color'] : null,
             ];
         }
@@ -99,7 +107,7 @@ class Room
             'created_at' => $createdAt,
             'updated_at' => $createdAt,
         ]);
-        $redis->expire($roomKey, 1800);
+        $redis->expire($roomKey, 60 * 60 * 24);
         $redis->sadd("room:{$roomId}:users", $userId);
         $redis->expire("room:{$roomId}:users", 60 * 60 * 24);
         return $roomId;
@@ -157,7 +165,7 @@ class Room
         $userData = $redis->hgetall($userKey);
 
         if (!empty($userData)) {
-            $redis->expire($userKey, 1800);
+            $redis->expire($userKey, 60 * 60 * 24);
             return;
         }
 
@@ -202,6 +210,6 @@ class Room
             'dice'      => json_encode($diceArr),
             'joined_at' => date('Y-m-d H:i:s'),
         ]);
-        $redis->expire($userKey, 1800);
+        $redis->expire($userKey, 60 * 60 * 24);
     }
 }

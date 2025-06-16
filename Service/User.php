@@ -7,6 +7,15 @@ require_once LIB_PATH . '/redis.php';
 
 class User
 {
+    public static function getUserData($userId, $roomId)
+    {
+        $redis  = getRedis();
+        $userKey = "room:{$roomId}:user:{$userId}";
+        $redis->expire($userKey, 60 * 60 * 24);
+        $redis->expire("room:{$roomId}:users", 60 * 60 * 24);
+        return $redis->hgetall($userKey);
+    }
+
     public static function getUserinRoom(): array
     {
         return room::cleanupRooms();
