@@ -109,4 +109,56 @@ class RoomDao
             'updated_at' => $updatedStr,
         ]);
     }
+
+    public function findPositionsByRoom(string $roomId): array
+    {
+        $setKey    = "room:{$roomId}:users";
+        $userIds   = $this->redis->smembers($setKey);
+        $positions = [];
+
+        foreach ($userIds as $userId) {
+            $hashKey = "room:{$roomId}:user:{$userId}";
+            $data    = $this->redis->hmget($hashKey, ['pos_x', 'pos_y']);
+            [$posX, $posY] = $data;
+
+            $positions[$userId] = [
+                isset($posX) ? (int)$posX : 0,
+                isset($posY) ? (int)$posY : 0,
+            ];
+        }
+
+        return $positions;
+    }
+
+    public function getTilesWithDiceColor(int $roomId, array $users): array
+    {
+        $room = $this->findByRoomId($roomId);
+        if (!$room) {
+            return [];
+        }
+
+        // 1) TileDto[] → [x][y] 그리드
+        $grid = [];
+        foreach ($room->getTiles() as $tile) {
+            $x = $tile->getx();
+            $y = $tile->gety();
+            $grid[$x][$y] = [
+                'type'  => $tile->getType(),
+                'score' => $tile->getScore(),
+                'color' => $tile->getColor(),
+            ];
+        }
+
+        // 2) 각 유저 위치 덮어쓰기
+        foreach ($users as $user) {
+            $x     = $user->getPosX();
+            $y     = $user->getPosY();
+            $front = $user->getDice()->getFront();
+            if (isset($grid[$x][$y])) {
+                $grid[$x][$y]['color'] = $front;
+            }
+        }
+
+        return $grid;
+    }
 }

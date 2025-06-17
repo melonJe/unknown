@@ -79,7 +79,32 @@ class RoomDto
     {
         return $this->updated_at;
     }
+    public function getNeighbors(array $position, int $radius): array
+    {
+        [$x, $y]      = $position;
+        $neighbors    = [];
 
+        for ($dx = -$radius; $dx <= $radius; $dx++) {
+            for ($dy = -$radius; $dy <= $radius; $dy++) {
+                // 자기 자신 제외
+                if ($dx === 0 && $dy === 0) {
+                    continue;
+                }
+
+                $nx = $x + $dx;
+                $ny = $y + $dy;
+
+                // 보드 경계 검사
+                if ($nx < 0 || $ny < 0 || $nx >= $this->width || $ny >= $this->height) {
+                    continue;
+                }
+
+                $neighbors[] = [$nx, $ny];
+            }
+        }
+
+        return $neighbors;
+    }
     /**
      * 배열 요소가 모두 TileDto 인스턴스인지 검사
      *

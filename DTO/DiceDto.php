@@ -30,27 +30,27 @@ class DiceDto
         $this->back   = $back;
     }
 
-    public function getTop(): string
+    public function getTopColor(): string
     {
         return $this->top;
     }
-    public function getBottom(): string
+    public function getBottomColor(): string
     {
         return $this->bottom;
     }
-    public function getLeft(): string
+    public function getLeftColor(): string
     {
         return $this->left;
     }
-    public function getRight(): string
+    public function getRightColor(): string
     {
         return $this->right;
     }
-    public function getFront(): string
+    public function getFrontColor(): string
     {
         return $this->front;
     }
-    public function getBack(): string
+    public function getBackColor(): string
     {
         return $this->back;
     }
