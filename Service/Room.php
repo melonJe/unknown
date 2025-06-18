@@ -106,7 +106,7 @@ class Room
 
         $redis->hmset($roomKey, [
             'room_id' => $roomId,
-            'state' => false,
+            'started' => '0',
             'width' => $defaultBoard['width'],
             'height' => $defaultBoard['height'],
             'tiles' => json_encode($tileMap, JSON_UNESCAPED_UNICODE),
@@ -217,5 +217,64 @@ class Room
             'joined_at' => date('Y-m-d H:i:s'),
         ]);
         $redis->expire($userKey, 60 * 60 * 24);
+    }
+
+    public static function startGame(string $roomId): array
+    {
+        $redis    = getRedis();
+        $roomKey  = "room:{$roomId}";
+        $roomData = $redis->hgetall($roomKey);
+
+        if (empty($roomData)) {
+            return [];
+        }
+
+        $redis->hset($roomKey, 'started', '1');
+        $redis->hset($roomKey, 'updated_at', date('Y-m-d H:i:s'));
+
+        $tiles = json_decode($roomData['tiles'] ?? '', true);
+        $startTiles = [];
+        foreach ($tiles as $xKey => $row) {
+            foreach ($row as $yKey => $tile) {
+                if (($tile['type'] ?? '') === 'start') {
+                    $startTiles[] = ['x' => $xKey, 'y' => $yKey];
+                }
+            }
+        }
+
+        $userIds = $redis->smembers("room:{$roomId}:users");
+        $turnOrder = $userIds;
+        shuffle($turnOrder);
+        $turnKey = "room:{$roomId}:turn_order";
+        $redis->del($turnKey);
+        foreach ($turnOrder as $uid) {
+            $redis->rpush($turnKey, $uid);
+        }
+        if (!empty($turnOrder)) {
+            $redis->hset("room:{$roomId}:turn", 'current_turn_user_id', $turnOrder[0]);
+        }
+
+        if (!empty($startTiles)) {
+            foreach ($userIds as $uid) {
+                $startTile = $startTiles[array_rand($startTiles)];
+                $diceArr = [
+                    'top'    => 'red',
+                    'bottom' => 'blue',
+                    'left'   => 'green',
+                    'right'  => 'yellow',
+                    'front'  => 'white',
+                    'back'   => 'purple',
+                ];
+                $userKey = "room:{$roomId}:user:{$uid}";
+                $redis->hmset($userKey, [
+                    'pos_x' => $startTile['x'],
+                    'pos_y' => $startTile['y'],
+                    'dice'  => json_encode($diceArr),
+                ]);
+                $redis->expire($userKey, 60 * 60 * 24);
+            }
+        }
+
+        return ['turn_order' => $turnOrder];
     }
 }
