@@ -5,15 +5,20 @@ namespace Service;
 require_once __DIR__ . '/../lib/constants.php';
 require_once LIB_PATH . '/redis.php';
 
+use DAO\UserDao;
+use DTO\DiceDto;
+use DTO\UserDto;
+
 class User
 {
     public static function getUserData($userId, $roomId)
     {
-        $redis  = getRedis();
-        $userKey = "room:{$roomId}:user:{$userId}";
-        $redis->expire($userKey, 60 * 60 * 24);
+        $redis   = getRedis();
+        $dao     = new UserDao($redis);
         $redis->expire("room:{$roomId}:users", 60 * 60 * 24);
-        return $redis->hgetall($userKey);
+
+        $dto = $dao->findByRoomAndUserId($roomId, $userId);
+        return $dto ? $dto->toArray() : [];
     }
 
     public static function getUserinRoom(): array
@@ -23,17 +28,18 @@ class User
     public static function deleteUserData($userId,  $roomId): void
     {
         $redis = getRedis();
+        $dao   = new UserDao($redis);
 
         if (empty($userId)) {
             return;
         }
         $redis->del("user:{$userId}");
         $redis->srem("users", $userId);
-        if (empty($roomId)) {
-            return;
+
+        if (!empty($roomId)) {
+            $dao->delete($roomId, $userId);
+            $redis->srem("room:{$roomId}:users", $userId);
         }
-        $redis->expire("room:{$roomId}:user:{$userId}", 60);
-        $redis->srem("room:{$roomId}:users", $userId);
     }
 
     public static function getDices($roomId): array
@@ -45,32 +51,17 @@ class User
             exit;
         }
 
-        $redis  = getRedis();
+        $redis = getRedis();
+        $dao   = new UserDao($redis);
 
-        $subIt = 0;
-        do {
-            list($subIt, $keys) = $redis->scan($subIt, ['match' => "room:{$roomId}:user:*", 'count' => 100,]);
-            if (!empty($keys)) {
-                foreach ($keys as $key) {
-                    $userId = null;
-                    $parts = explode(':', $key);
-                    if (count($parts) === 4 && $parts[2] === 'user') {
-                        $userId = $parts[3];
-                    }
-
-                    $userData = $redis->hgetall($key);
-                    if (isset($userData['pos_x']) && isset($userData['pos_y'])) {
-                        $player += [
-                            $userId => [
-                                'pos_x'   => $userData['pos_x'],
-                                'pos_y'   => $userData['pos_y'],
-                                'dice'    => json_decode($userData['dice'] ?? '{}', true),
-                            ]
-                        ];
-                    }
-                }
-            }
-        } while ($subIt != 0 && $subIt !== null);
+        $users = $dao->findAllByRoomId($roomId);
+        foreach ($users as $uid => $dto) {
+            $player[$uid] = [
+                'pos_x' => $dto->getPosX(),
+                'pos_y' => $dto->getPosY(),
+                'dice'  => $dto->getDice()->toArray(),
+            ];
+        }
 
         return ["player" => $player];
     }

@@ -6,6 +6,9 @@ require_once __DIR__ . '/../lib/constants.php';
 require_once LIB_PATH . '/redis.php';
 require_once LIB_PATH . '/postgres.php';
 
+use DAO\RoomDao;
+use DTO\RoomDto;
+
 use Exception;
 
 class Room
@@ -13,10 +16,13 @@ class Room
     public static function getRoomData($roomId)
     {
         $redis  = getRedis();
-        $roomKey = "room:{$roomId}";
-        $redis->expire($roomKey, 60 * 60 * 24);
-        $redis->expire("room:{$roomId}:users", 60 * 60 * 24);
-        return $redis->hgetall($roomKey);
+        $dao    = new RoomDao($redis);
+        $room   = $dao->findByRoomId((int)$roomId);
+        if ($room) {
+            return $room->toArray();
+        }
+
+        return [];
     }
 
     public static function cleanupRooms(): array

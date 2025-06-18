@@ -39,4 +39,15 @@ class TileDto
     {
         return $this->color;
     }
+    public function toArray(): array
+    {
+        return [
+            'x'     => $this->x,
+            'y'     => $this->y,
+            'type'  => $this->type,
+            'score' => $this->score,
+            'color' => $this->color,
+        ];
+    }
+
 }
