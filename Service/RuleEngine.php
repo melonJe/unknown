@@ -4,12 +4,38 @@ namespace Service;
 
 use DTO\RoomDto;
 use DTO\UserDto;
-use DAO\RoomDao;
 
 class RuleEngine
 {
     /**
+     * Build grid merged with users' dice colors.
+     *
+     * @param RoomDto        $room
+     * @param UserDto[]      $users
+     * @return array<int,array<int,array<string,mixed>>>
+     */
+    private function buildColorGrid(RoomDto $room, array $users): array
+    {
+        $grid = [];
+        foreach ($room->getTiles() as $tile) {
+            $grid[$tile->getx()][$tile->gety()] = [
+                'type'  => $tile->getType(),
+                'score' => $tile->getScore(),
+                'color' => $tile->getColor(),
+            ];
+        }
+        foreach ($users as $u) {
+            $grid[$u->getPosX()][$u->getPosY()]['color'] = $u->getDice()->getFrontColor();
+        }
+        return $grid;
+    }
+    /**
      * Validate move against all rules.
+     *
+     * @param RoomDto   $room
+     * @param UserDto   $user
+     * @param string    $direction
+     * @param UserDto[] $allUsers
      */
     public function validateMove(RoomDto $room, UserDto $user, string $direction, array $allUsers): bool
     {
@@ -31,13 +57,13 @@ class RuleEngine
         return true;
     }
 
-    /** Hidden rule #4 */
+    /**
+     * Hidden rule #4.
+     * Around the player, no tile may have the same color.
+     */
     public function noSameColorInNine(RoomDto $room, UserDto $user, array $allUsers): bool
     {
-        $grid = $room->getTiles();
-        foreach ($allUsers as $u) {
-            $grid[$u->getPosX()][$u->getPosY()]['color'] = $u->getDice()->getFrontColor();
-        }
+        $grid = $this->buildColorGrid($room, $allUsers);
         $neighbors = $room->getNeighbors([$user->getPosX(), $user->getPosY()], 1);
         $color = $user->getDice()->getFrontColor();
         foreach ($neighbors as [$x, $y]) {
@@ -48,13 +74,13 @@ class RuleEngine
         return true;
     }
 
-    /** Hidden rule #5 */
+    /**
+     * Hidden rule #5.
+     * Three or more matching colors around the player fail the move.
+     */
     public function threeOrMoreInNine(RoomDto $room, UserDto $user, array $allUsers): bool
     {
-        $grid = $room->getTiles();
-        foreach ($allUsers as $u) {
-            $grid[$u->getPosX()][$u->getPosY()]['color'] = $u->getDice()->getFrontColor();
-        }
+        $grid = $this->buildColorGrid($room, $allUsers);
         $neighbors = $room->getNeighbors([$user->getPosX(), $user->getPosY()], 1);
         $color = $user->getDice()->getFrontColor();
         $count = 0;
@@ -68,16 +94,16 @@ class RuleEngine
         return false;
     }
 
-    /** Hidden rule #6 */
+    /**
+     * Hidden rule #6.
+     * Yellow dice face requires at least three neighbors to block.
+     */
     public function yellowSpecial(RoomDto $room, UserDto $user, array $allUsers): bool
     {
         if ($user->getDice()->getFrontColor() !== 'yellow') {
             return false;
         }
-        $grid = $room->getTiles();
-        foreach ($allUsers as $u) {
-            $grid[$u->getPosX()][$u->getPosY()]['color'] = $u->getDice()->getFrontColor();
-        }
+        $grid = $this->buildColorGrid($room, $allUsers);
         $neighbors = $room->getNeighbors([$user->getPosX(), $user->getPosY()], 1);
         $count = 0;
         foreach ($neighbors as [$x, $y]) {
@@ -90,13 +116,13 @@ class RuleEngine
         return false;
     }
 
-    /** Hidden rule #7 */
+    /**
+     * Hidden rule #7.
+     * Creates a line of three with same color.
+     */
     public function lineOfThree(RoomDto $room, UserDto $user, array $allUsers): bool
     {
-        $grid = $room->getTiles();
-        foreach ($allUsers as $u) {
-            $grid[$u->getPosX()][$u->getPosY()]['color'] = $u->getDice()->getFrontColor();
-        }
+        $grid = $this->buildColorGrid($room, $allUsers);
         $startX = $user->getPosX();
         $startY = $user->getPosY();
         $color  = $user->getDice()->getFrontColor();

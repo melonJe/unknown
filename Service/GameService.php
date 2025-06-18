@@ -3,7 +3,6 @@
 namespace Service;
 
 use Predis\Client;
-use DTO\RoomDto;
 use DTO\UserDto;
 use DAO\RoomDao;
 use DAO\UserDao;
@@ -14,37 +13,29 @@ class GameService
     private RoomDao $roomDao;
     private UserDao $userDao;
     private RuleEngine $ruleEngine;
+    private TurnManager $turnManager;
 
-    public function __construct(Client $redis, RoomDao $roomDao, UserDao $userDao, RuleEngine $ruleEngine)
+    public function __construct(
+        Client $redis,
+        RoomDao $roomDao,
+        UserDao $userDao,
+        RuleEngine $ruleEngine,
+        TurnManager $turnManager
+    )
     {
         $this->redis = $redis;
         $this->roomDao = $roomDao;
         $this->userDao = $userDao;
         $this->ruleEngine = $ruleEngine;
+        $this->turnManager = $turnManager;
     }
 
     /**
-     * Start a turn for the given room. Sets timeout key and broadcasts event.
+     * Start a turn for the given room.
      */
     public function startTurn(string $roomId): void
     {
-        $turnOrderKey = "room:{$roomId}:turn_order";
-        $current = $this->redis->lindex($turnOrderKey, 0);
-        if ($current === null) {
-            $users = $this->userDao->findAllByRoomId($roomId);
-            foreach (array_keys($users) as $uid) {
-                $this->redis->rpush($turnOrderKey, $uid);
-            }
-            $current = $this->redis->lindex($turnOrderKey, 0);
-        }
-
-        if ($current === null) {
-            return;
-        }
-
-        $this->redis->hset("room:{$roomId}:turn", "current_turn_user_id", $current);
-        $this->redis->setex("room:{$roomId}:turn_timer", 30, $current);
-        $this->broadcast($roomId, 'TurnStarted', ['userId' => $current]);
+        $this->turnManager->startTurn($roomId);
     }
 
     /**
@@ -92,34 +83,25 @@ class GameService
         );
         $this->userDao->save($updated);
 
-        $this->broadcast($roomId, 'DiceMoved', [
+        $this->broadcastEvent($roomId, 'dice.moved', [
             'userId' => $userId,
             'x' => $newX,
             'y' => $newY,
         ]);
-
-        $this->handleTimeout($roomId);
+        $this->nextTurn($roomId);
     }
 
     /**
      * Rotate turn when timer expires
      */
-    public function handleTimeout(string $roomId): void
+    public function nextTurn(string $roomId): void
     {
-        $turnOrderKey = "room:{$roomId}:turn_order";
-        $next = $this->redis->rpoplpush($turnOrderKey, $turnOrderKey);
-        if ($next === null) {
-            return;
-        }
-        $this->redis->hset("room:{$roomId}:turn", "current_turn_user_id", $next);
-        $this->redis->setex("room:{$roomId}:turn_timer", 30, $next);
-        $this->broadcast($roomId, 'TurnStarted', ['userId' => $next]);
+        $this->turnManager->rotateTurn($roomId);
     }
-
-    private function broadcast(string $roomId, string $type, array $payload): void
+    private function broadcastEvent(string $roomId, string $event, array $payload): void
     {
         $channel = "room:{$roomId}:events";
-        $data = json_encode(['type' => $type, 'payload' => $payload]);
+        $data = json_encode(['event' => $event, 'data' => $payload]);
         $this->redis->publish($channel, $data);
     }
 }
