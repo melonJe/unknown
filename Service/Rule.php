@@ -21,7 +21,7 @@ class Rule
      */
     public function isExileCondition(RoomDto $room, UserDto $user, UserDao $userDao): bool
     {
-        $topColor = $user->getDice()->getFrontColor();
+        $topColor = $user->getDice()->getTopColor();
 
         $cell      = $room->getTiles()[$user->getPosX()][$user->getPosY()] ?? [];
         $cellColor = $cell['color'] ?? null;
