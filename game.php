@@ -19,6 +19,8 @@ if (!$room_id) {
     <h1>방 ID: <?= htmlspecialchars($room_id) ?></h1>
     <button onclick="location.href='index.php'">🔙 대기실로</button>
     <div id="board"></div>
+    <button id="startBtn">Start Game</button>
+    <div id="turn-order"></div>
 
     <script>
         let roomId = "<?= $room_id ?>";
@@ -49,6 +51,13 @@ if (!$room_id) {
                         room_id: roomId,
                         user_id: myUserId
                     }));
+                    document.getElementById('startBtn').onclick = () => {
+                        ws.send(JSON.stringify({
+                            action: 'start_game',
+                            room_id: roomId,
+                            user_id: myUserId
+                        }));
+                    };
                 };
 
                 ws.onmessage = (event) => {
@@ -65,6 +74,9 @@ if (!$room_id) {
                             // 주사위 렌더링
                             renderBoard(boardData);
                             renderUsers(msg.dices.player);
+                            break;
+                        case 'game_started':
+                            displayTurnOrder(msg.turn_order);
                             break;
                         case 'dice_moved':
                             // 한 사용자가 주사위 이동했을 때 해당 사용자 정보만 업데이트
@@ -192,8 +204,17 @@ if (!$room_id) {
         function getBoardWidth() {
             const board = document.getElementById('board');
             // grid-template-columns에서 px 정보 꺼내서 계산하거나, 서버에서 width를 전역 변수에 저장
-            // 여기서는 처음 renderBoard 할 때 전역 변수에 저장하는 방식으로 수정하는 게 깔끔 
+            // 여기서는 처음 renderBoard 할 때 전역 변수에 저장하는 방식으로 수정하는 게 깔끔
             return boardWidth || 0;
+        }
+
+        function displayTurnOrder(order) {
+            const el = document.getElementById('turn-order');
+            if (!order || order.length === 0) {
+                el.textContent = '';
+                return;
+            }
+            el.textContent = 'Turn: ' + order.join(' → ');
         }
 
         // 주사위 DOM 생성 및 드래그 이벤트 처리 (기존 createDiceElement 함수 수정)

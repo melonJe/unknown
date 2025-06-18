@@ -32,7 +32,7 @@ class RoomDao
         }
 
         // 기본값 및 타입 변환
-        $state     = $data['state']   ?? '';
+        $started   = isset($data['started']) && $data['started'] !== '0';
         $width     = isset($data['width'])  ? (int)$data['width']  : 0;
         $height    = isset($data['height']) ? (int)$data['height'] : 0;
         $tilesJson = $data['tiles']   ?? '[]';
@@ -66,7 +66,7 @@ class RoomDao
 
         return new RoomDto(
             $roomId,
-            $state,
+            $started,
             $width,
             $height,
             $tiles,
@@ -101,7 +101,7 @@ class RoomDao
         $updatedStr = $dto->getUpdatedAt()->format(DateTimeInterface::ATOM);
 
         $this->redis->hmset($key, [
-            'state'      => $dto->getState(),
+            'started'    => $dto->isStarted() ? '1' : '0',
             'width'      => $dto->getWidth(),
             'height'     => $dto->getHeight(),
             'tiles'      => $tilesJson,

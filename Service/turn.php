@@ -42,10 +42,10 @@ class Turn
             return false;
         }
 
-        // roomData['state']가 false(게임 시작 전)이면 항상 true로 반환
-        if (isset($roomData['state']) && $roomData['state'] === 'false') {
-            echo json_encode(['is_my_turn' => true], JSON_UNESCAPED_UNICODE);
-            return true;
+        $started = isset($roomData['started']) && $roomData['started'] !== '0';
+        if (!$started) {
+            echo json_encode(['is_my_turn' => false], JSON_UNESCAPED_UNICODE);
+            return false;
         }
 
         $turnUserId = $redis->hget("room:{$roomId}:turn", "current_turn_user_id");

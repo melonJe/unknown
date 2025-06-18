@@ -49,6 +49,15 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
             $conn->send(json_encode(['type' => 'board_data', 'board' => Room::getBoard($msg['room_id'])]));
             $conn->send(json_encode(['type' => 'dices_data', 'dices' => user::getDices($msg['room_id'])]));
             break;
+        case 'start_game':
+            $result = Room::startGame($msg['room_id']);
+            foreach ($ws_worker->connections as $c) {
+                if ($c->roomId === $msg['room_id']) {
+                    $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
+                    $c->send(json_encode(['type' => 'game_started', 'turn_order' => $result['turn_order']]));
+                }
+            }
+            break;
         case 'move':
             Dice::move($msg['user_id'], $msg['room_id'], $msg['direction']);
             foreach ($ws_worker->connections as $c) {

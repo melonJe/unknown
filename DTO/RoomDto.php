@@ -8,7 +8,7 @@ use InvalidArgumentException;
 class RoomDto
 {
     private int $roomId;
-    private string $state;
+    private bool $started;
     private int $width;
     private int $height;
     /**
@@ -25,7 +25,7 @@ class RoomDto
      */
     public function __construct(
         int $roomId,
-        string $state,
+        bool $started,
         int $width,
         int $height,
         array $tiles,
@@ -33,7 +33,7 @@ class RoomDto
         DateTimeInterface $updated_at
     ) {
         $this->roomId     = $roomId;
-        $this->state      = $state;
+        $this->started    = $started;
         $this->width      = $width;
         $this->height     = $height;
         $this->validateTiles($tiles);
@@ -47,9 +47,9 @@ class RoomDto
         return $this->roomId;
     }
 
-    public function getState(): string
+    public function isStarted(): bool
     {
-        return $this->state;
+        return $this->started;
     }
 
     public function getWidth(): int
@@ -126,7 +126,7 @@ class RoomDto
     {
         return [
             'room_id'    => $this->roomId,
-            'state'      => $this->state,
+            'started'    => $this->started,
             'width'      => $this->width,
             'height'     => $this->height,
             'tiles'      => array_map(fn(TileDto $t) => $t->toArray(), $this->tiles),
