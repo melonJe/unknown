@@ -21,6 +21,7 @@ if (!$room_id) {
     <button id="startBtn">Start Game</button>
     <div id="board"></div>
     <div id="turn-order"></div>
+    <div id="start-dice"></div>
 
     <script>
         let roomId = "<?= $room_id ?>";
@@ -28,6 +29,18 @@ if (!$room_id) {
         let boardWidth;
         let boardData;
         let ws;
+        let selectingStart = false;
+        let startOrder = [];
+        let startIndex = 0;
+        let startDiceData = {
+            top: 'red',
+            bottom: 'blue',
+            left: 'green',
+            right: 'yellow',
+            front: 'white',
+            back: 'purple'
+        };
+        let startDiceEl;
         // 주사위 색 매핑
         const colorMap = {
             red: '#BF2C47',
@@ -57,6 +70,7 @@ if (!$room_id) {
                             room_id: roomId,
                             user_id: myUserId
                         }));
+                        document.getElementById('startBtn').style.display = 'none';
                     };
                 };
 
@@ -77,6 +91,13 @@ if (!$room_id) {
                             break;
                         case 'game_started':
                             displayTurnOrder(msg.turn_order);
+                            startOrder = msg.turn_order;
+                            startIndex = 0;
+                            selectingStart = true;
+                            if (startOrder[startIndex] === myUserId) {
+                                enableStartSelection();
+                            }
+                            document.getElementById('startBtn').style.display = 'none';
                             break;
                         case 'dice_moved':
                             // 한 사용자가 주사위 이동했을 때 해당 사용자 정보만 업데이트
@@ -306,6 +327,111 @@ if (!$room_id) {
             });
 
             return container;
+        }
+
+        function rollDice(data, dir) {
+            switch (dir) {
+                case 'up':
+                    return {
+                        top: data.front,
+                        bottom: data.back,
+                        left: data.left,
+                        right: data.right,
+                        front: data.bottom,
+                        back: data.top
+                    };
+                case 'down':
+                    return {
+                        top: data.back,
+                        bottom: data.front,
+                        left: data.left,
+                        right: data.right,
+                        front: data.top,
+                        back: data.bottom
+                    };
+                case 'left':
+                    return {
+                        top: data.top,
+                        bottom: data.bottom,
+                        left: data.front,
+                        right: data.back,
+                        front: data.right,
+                        back: data.left
+                    };
+                case 'right':
+                    return {
+                        top: data.top,
+                        bottom: data.bottom,
+                        left: data.back,
+                        right: data.front,
+                        front: data.left,
+                        back: data.right
+                    };
+            }
+            return data;
+        }
+
+        function createPreviewDice() {
+            const wrap = document.getElementById('start-dice');
+            wrap.innerHTML = '';
+            const cont = document.createElement('div');
+            cont.className = 'dice-container';
+            const cube = document.createElement('div');
+            cube.className = 'dice';
+            for (const face of ['top','bottom','left','right','front','back']) {
+                const f = document.createElement('div');
+                f.className = `face ${face}`;
+                f.style.background = colorMap[startDiceData[face]] || 'white';
+                cube.appendChild(f);
+            }
+            cont.appendChild(cube);
+            let drag = false;
+            let sx=0, sy=0, rx=0, ry=0;
+            cont.addEventListener('mousedown', e=>{ drag=true; sx=e.clientX; sy=e.clientY; cube.style.transition='none'; });
+            document.addEventListener('mousemove', e=>{
+                if(!drag) return; const dx=e.clientX-sx; const dy=e.clientY-sy; sx=e.clientX; sy=e.clientY; ry+=dx*0.5; rx-=dy*0.5; ry=Math.max(-45,Math.min(45,ry)); rx=Math.max(-45,Math.min(45,rx)); cube.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg)`; });
+            document.addEventListener('mouseup', e=>{
+                if(!drag) return; drag=false; cube.style.transition='transform 0.5s ease'; cube.style.transform='rotateX(0deg) rotateY(0deg)'; let dx=e.clientX-sx; let dy=e.clientY-sy; if(Math.abs(dx)<50 && Math.abs(dy)<50) return; let dir; if(Math.abs(dx)>Math.abs(dy)) dir=dx>0?'right':'left'; else dir=dy>0?'down':'up'; startDiceData=rollDice(startDiceData,dir); createPreviewDice(); });
+            wrap.appendChild(cont);
+            startDiceEl = cont;
+        }
+
+        function enableStartSelection() {
+            if (!selectingStart) return;
+            createPreviewDice();
+            document.querySelectorAll('.tile.start').forEach(t => {
+                t.classList.add('selectable');
+                t.addEventListener('click', handleStartClick);
+            });
+        }
+
+        function disableStartSelection() {
+            document.querySelectorAll('.tile.start').forEach(t => {
+                t.classList.remove('selectable');
+                t.replaceWith(t.cloneNode(true));
+            });
+            document.getElementById('start-dice').innerHTML = '';
+        }
+
+        function handleStartClick(e) {
+            if (startOrder[startIndex] !== myUserId) return;
+            const tile = e.currentTarget;
+            const idx = Array.prototype.indexOf.call(tile.parentNode.children, tile);
+            const x = (idx % boardWidth) + 1;
+            const y = Math.floor(idx / boardWidth) + 1;
+            ws.send(JSON.stringify({
+                action: 'set_start',
+                room_id: roomId,
+                user_id: myUserId,
+                x: x,
+                y: y,
+                dice: startDiceData
+            }));
+            disableStartSelection();
+            startIndex++;
+            if (startOrder[startIndex] === myUserId) {
+                enableStartSelection();
+            }
         }
     </script>
 </body>

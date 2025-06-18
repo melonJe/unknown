@@ -185,22 +185,6 @@ class Room
 
         $tiles = json_decode($roomData['tiles'] ?? '', true);
 
-        $startTiles = [];
-        foreach ($tiles as $xKey => $row) {
-            foreach ($row as $yKey => $tile) {
-                if (($tile['type'] ?? '') === 'start') {
-                    $startTiles[] = ['x' => $xKey, 'y' => $yKey];
-                }
-            }
-        }
-
-        if (empty($startTiles)) {
-            http_response_code(500);
-            exit;
-        }
-
-        $startTile = $startTiles[random_int(0, count($startTiles) - 1)];
-
         $diceArr = [
             'top'    => 'red',
             'bottom' => 'blue',
@@ -211,8 +195,8 @@ class Room
         ];
 
         $redis->hmset($userKey, [
-            'pos_x'     => $startTile['x'],
-            'pos_y'     => $startTile['y'],
+            'pos_x'     => -1,
+            'pos_y'     => -1,
             'dice'      => json_encode($diceArr),
             'joined_at' => date('Y-m-d H:i:s'),
         ]);
@@ -227,6 +211,10 @@ class Room
 
         if (empty($roomData)) {
             return [];
+        }
+
+        if (($roomData['started'] ?? '0') === '1') {
+            return ['error' => 'already_started'];
         }
 
         $redis->hset($roomKey, 'started', '1');
@@ -256,25 +244,44 @@ class Room
 
         if (!empty($startTiles)) {
             foreach ($userIds as $uid) {
-                $startTile = $startTiles[array_rand($startTiles)];
-                $diceArr = [
-                    'top'    => 'red',
-                    'bottom' => 'blue',
-                    'left'   => 'green',
-                    'right'  => 'yellow',
-                    'front'  => 'white',
-                    'back'   => 'purple',
-                ];
                 $userKey = "room:{$roomId}:user:{$uid}";
                 $redis->hmset($userKey, [
-                    'pos_x' => $startTile['x'],
-                    'pos_y' => $startTile['y'],
-                    'dice'  => json_encode($diceArr),
+                    'pos_x' => -1,
+                    'pos_y' => -1,
                 ]);
                 $redis->expire($userKey, 60 * 60 * 24);
             }
         }
 
         return ['turn_order' => $turnOrder];
+    }
+
+    public static function setStartTile(string $roomId, string $userId, int $x, int $y, array $dice): bool
+    {
+        $redis   = getRedis();
+        $roomKey = "room:{$roomId}";
+        $roomData = $redis->hgetall($roomKey);
+        if (empty($roomData)) {
+            return false;
+        }
+        $tiles = json_decode($roomData['tiles'] ?? '', true);
+        if (!isset($tiles[$x][$y]) || ($tiles[$x][$y]['type'] ?? '') !== 'start') {
+            return false;
+        }
+        $userIds = $redis->smembers("room:{$roomId}:users");
+        foreach ($userIds as $uid) {
+            $u = $redis->hgetall("room:{$roomId}:user:{$uid}");
+            if ($u && (int)($u['pos_x'] ?? -1) === $x && (int)($u['pos_y'] ?? -1) === $y) {
+                return false;
+            }
+        }
+        $userKey = "room:{$roomId}:user:{$userId}";
+        $redis->hmset($userKey, [
+            'pos_x' => $x,
+            'pos_y' => $y,
+            'dice'  => json_encode($dice),
+        ]);
+        $redis->expire($userKey, 60 * 60 * 24);
+        return true;
     }
 }
