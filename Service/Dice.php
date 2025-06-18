@@ -54,12 +54,12 @@ class Dice
         $roomData = $redis->hgetall($roomKey);
 
 
-        // 턴 체크 (주석: 실제 적용시 활성화)
-        // $turnUser = $redis->hget("room:{$roomId}:turn", "current_turn_user_id");
-        // if (!$roomData["state"] || $turnUser !== $userId) {
-        //     http_response_code(403);
-        //     return ['error' => 'not your turn'];
-        // }
+        //턴 체크
+        $turnUser = $redis->hget("room:{$roomId}:turn", "current_turn_user_id");
+        if ($roomData["state"] || $turnUser !== $userId) {
+            http_response_code(403);
+            return ['error' => 'not your turn'];
+        }
 
         if (!$roomData) {
             http_response_code(404);

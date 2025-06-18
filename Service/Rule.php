@@ -21,12 +21,12 @@ class Rule
      */
     public function isExileCondition(RoomDto $room, UserDto $user, UserDao $userDao): bool
     {
-        $topColor = $user->getDice()->getFrontColor();
+        $frontColor = $user->getDice()->getFrontColor();
 
         $cell      = $room->getTiles()[$user->getPosX()][$user->getPosY()] ?? [];
         $cellColor = $cell['color'] ?? null;
 
-        if ($topColor === 'white' || $cellColor === 'white') {
+        if ($frontColor === 'white' || $cellColor === 'white') {
             $user->setExileMarkCount($user->getExileMarkCount() + 1);
             $userDao->save($user);
             return true;
@@ -59,10 +59,10 @@ class Rule
         );
         $center    = [$user->getPosX(), $user->getPosY()];
         $neighbors = $room->getNeighbors($center, 1);
-        $topColor  = $user->getDice()->getTopColor();
+        $frontColor  = $user->getDice()->getFrontColor();
 
         foreach ($neighbors as [$x, $y]) {
-            if (($grid[$x][$y]['color'] ?? null) === $topColor) {
+            if (($grid[$x][$y]['color'] ?? null) === $frontColor) {
                 return false;
             }
         }
@@ -88,11 +88,11 @@ class Rule
         $grid      = $roomDao->getTilesWithDiceColor($room->getRoomId(), $allUsers);
         $center    = [$user->getPosX(), $user->getPosY()];
         $neighbors = $room->getNeighbors($center, 1);
-        $topColor  = $user->getDice()->getTopColor();
+        $frontColor  = $user->getDice()->getFrontColor();
         $count     = 0;
 
         foreach ($neighbors as [$x, $y]) {
-            if (($grid[$x][$y]['color'] ?? null) === $topColor) {
+            if (($grid[$x][$y]['color'] ?? null) === $frontColor) {
                 if (++$count >= 3) {
                     return true;
                 }
@@ -117,8 +117,8 @@ class Rule
         array $allUsers,
         RoomDao $roomDao
     ): bool {
-        $topColor = $user->getDice()->getTopColor();
-        if ($topColor !== 'yellow') {
+        $frontColor = $user->getDice()->getFrontColor();
+        if ($frontColor !== 'yellow') {
             return false;
         }
 
@@ -157,7 +157,7 @@ class Rule
         $grid       = $roomDao->getTilesWithDiceColor($room->getRoomId(), $allUsers);
         $startX     = $user->getPosX();
         $startY     = $user->getPosY();
-        $topColor   = $user->getDice()->getTopColor();
+        $frontColor   = $user->getDice()->getFrontColor();
         $directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
 
         foreach ($directions as [$dx, $dy]) {
@@ -165,7 +165,7 @@ class Rule
             for ($i = 1; $i < 3; $i++) {
                 $nx = $startX + $dx * $i;
                 $ny = $startY + $dy * $i;
-                if (($grid[$nx][$ny]['color'] ?? null) === $topColor) {
+                if (($grid[$nx][$ny]['color'] ?? null) === $frontColor) {
                     $count++;
                 } else {
                     break;
@@ -188,15 +188,5 @@ class Rule
     public function isPushChainPrevented(string $eventType): bool
     {
         return $eventType === 'push';
-    }
-
-    /**
-     * 8. 그 외 후속 조건 예시 (필요 시 추가)
-     *
-     * @return bool
-     */
-    public function customCondition(): bool
-    {
-        return false;
     }
 }
