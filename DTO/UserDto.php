@@ -79,7 +79,7 @@ class UserDto
             $data['user']       ?? '',
             (int)($data['pos_x'] ?? 0),
             (int)($data['pos_y'] ?? 0),
-            (int)($data['exileMarkCount'] ?? 0),
+            (int)($data['exile_mark_count'] ?? 0),
             DiceDto::fromJson($data['dice'] ?? '{}'),
             new DateTimeImmutable($data['joined_at'] ?? 'now'),
         );

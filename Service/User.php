@@ -59,7 +59,7 @@ class User
                     }
 
                     $userData = $redis->hgetall($key);
-                    if (!empty($userData['pos_x']) && !empty($userData['pos_y'])) {
+                    if (isset($userData['pos_x']) && isset($userData['pos_y'])) {
                         $player += [
                             $userId => [
                                 'pos_x'   => $userData['pos_x'],
