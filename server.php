@@ -2,6 +2,21 @@
 
 require_once __DIR__ . '/vendor/autoload.php';
 
+set_error_handler(function ($level, $message, $file, $line) {
+    echo "[Error] {$message} in {$file}:{$line}\n";
+});
+
+set_exception_handler(function (Throwable $e) {
+    echo "[Exception] {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}\n";
+});
+
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error !== null) {
+        echo "[Fatal] {$error['message']} in {$error['file']}:{$error['line']}\n";
+    }
+});
+
 use Workerman\Worker;
 use Workerman\Connection\TcpConnection;
 use Workerman\Protocols\Http\Request;
@@ -15,24 +30,26 @@ $ws_worker = new Worker("websocket://0.0.0.0:8080");
 $ws_worker->connections = [];
 
 // 연결 시
-$ws_worker->onWebSocketConnect  = function (TcpConnection $conn, Request $request) use (&$ws_worker) {
-    // 전체 클라 목록에 추가
-    $ws_worker->connections[$conn->id] = $conn;
-    // 커스텀 프로퍼티로 저장
-    $conn->roomId = $request->get('roomId');
-    $conn->userId = $request->get('userId');
-    // echo "New connection ({$conn->id})\n";
+$ws_worker->onWebSocketConnect = function (TcpConnection $conn, Request $request) use (&$ws_worker) {
+    try {
+        $ws_worker->connections[$conn->id] = $conn;
+        $conn->roomId = $request->get('roomId');
+        $conn->userId = $request->get('userId');
+    } catch (Throwable $e) {
+        echo "[Connect Exception] {$e->getMessage()}\n";
+    }
 };
 
 // 메시지 수신
 $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) {
-    $msg = @json_decode($data, true);
+    try {
+        $msg = @json_decode($data, true);
 
-    if (!$msg) {
-        $conn->send(json_encode(['type' => 'error', 'message' => 'Invalid JSON']));
-        return;
-    }
-    switch ($msg['action']) {
+        if (!$msg) {
+            $conn->send(json_encode(['type' => 'error', 'message' => 'Invalid JSON']));
+            return;
+        }
+        switch ($msg['action']) {
         case 'get_room_list':
             $rooms = Room::getRooms();
             $conn->send(json_encode(['type' => 'room_list', 'rooms' => $rooms]));
@@ -67,22 +84,36 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
 
         default:
             break;
+        }
+    } catch (Throwable $e) {
+        $conn->send(json_encode(['type' => 'error', 'message' => 'server_error']));
+        echo "[Message Exception] {$e->getMessage()}\n";
     }
 };
 
 // 연결 종료 시
 $ws_worker->onClose = function (TcpConnection $conn) use (&$ws_worker) {
-    unset($ws_worker->connections[$conn->id]);
-    $roomId = $conn->roomId;
-    $userId = $conn->userId;
-    // echo "{$userId}\n";
-    User::deleteUserData($userId, $roomId);
-    if (!empty($roomId)) {
-
-        foreach ($ws_worker->connections as $c) {
-            $c->send(json_encode(['type' => 'user_out', 'msg' => "{$userId}님의 연결이 끊겼습니다.", 'dices' => user::getDices($roomId)]));
+    try {
+        unset($ws_worker->connections[$conn->id]);
+        $roomId = $conn->roomId;
+        $userId = $conn->userId;
+        User::deleteUserData($userId, $roomId);
+        if (!empty($roomId)) {
+            foreach ($ws_worker->connections as $c) {
+                $c->send(json_encode([
+                    'type'  => 'user_out',
+                    'msg'   => "{$userId}님의 연결이 끊겼습니다.",
+                    'dices' => user::getDices($roomId)
+                ]));
+            }
         }
+    } catch (Throwable $e) {
+        echo "[Close Exception] {$e->getMessage()}\n";
     }
+};
+
+$ws_worker->onError = function ($connection, $code, $msg) {
+    echo "[Worker Error] {$code}: {$msg}\n";
 };
 
 // 서버 실행
