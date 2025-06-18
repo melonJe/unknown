@@ -61,11 +61,7 @@ class Dice
         //턴 체크 및 게임 시작 여부 확인
         $turnUser = $redis->hget("room:{$roomId}:turn", "current_turn_user_id");
         $started  = isset($roomData['started']) && $roomData['started'] !== '0';
-        if (!$started) {
-            http_response_code(403);
-            return ['error' => 'game not started'];
-        }
-        if ($turnUser !== $userId) {
+        if ($started && $turnUser !== $userId) {
             http_response_code(403);
             return ['error' => 'not your turn'];
         }

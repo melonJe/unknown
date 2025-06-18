@@ -18,8 +18,8 @@ if (!$room_id) {
 <body>
     <h1>방 ID: <?= htmlspecialchars($room_id) ?></h1>
     <button onclick="location.href='index.php'">🔙 대기실로</button>
-    <div id="board"></div>
     <button id="startBtn">Start Game</button>
+    <div id="board"></div>
     <div id="turn-order"></div>
 
     <script>
