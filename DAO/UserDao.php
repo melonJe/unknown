@@ -32,6 +32,28 @@ class UserDao
     }
 
     /**
+     * 방에 존재하는 모든 유저 정보를 조회한다
+     *
+     * @param string $roomId
+     * @return array<string,UserDto>
+     */
+    public function findAllByRoomId(string $roomId): array
+    {
+        $setKey  = "room:{$roomId}:users";
+        $userIds = $this->redis->smembers($setKey);
+
+        $users = [];
+        foreach ($userIds as $uid) {
+            $dto = $this->findByRoomAndUserId($roomId, $uid);
+            if ($dto) {
+                $users[$uid] = $dto;
+            }
+        }
+
+        return $users;
+    }
+
+    /**
      * DTO를 Redis에 저장 (create/update)
      *
      * @param UserDto $user

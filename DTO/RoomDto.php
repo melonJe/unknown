@@ -122,4 +122,17 @@ class RoomDto
             }
         }
     }
+    public function toArray(): array
+    {
+        return [
+            'room_id'    => $this->roomId,
+            'state'      => $this->state,
+            'width'      => $this->width,
+            'height'     => $this->height,
+            'tiles'      => array_map(fn(TileDto $t) => $t->toArray(), $this->tiles),
+            'created_at' => $this->created_at->format(DateTimeInterface::ATOM),
+            'updated_at' => $this->updated_at->format(DateTimeInterface::ATOM),
+        ];
+    }
+
 }

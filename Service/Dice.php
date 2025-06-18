@@ -3,6 +3,9 @@
 namespace Service;
 
 use Helpers\DiceHelper;
+use DAO\UserDao;
+use DTO\UserDto;
+use DTO\DiceDto;
 
 class Dice
 {
@@ -47,7 +50,8 @@ class Dice
             return ["error" => "room_id, direction, user_id required"];
         }
 
-        $redis = getRedis();
+        $redis    = getRedis();
+        $dao      = new UserDao($redis);
         $redis->expire("user:{$userId}", 60 * 60 * 24);
         $roomKey = "room:{$roomId}";
         $redis->expire($roomKey, 60 * 60 * 24);
@@ -67,11 +71,14 @@ class Dice
         }
         $tiles = json_decode($roomData['tiles'], true);
 
-        $userIds = $redis->smembers("room:{$roomId}:users");
         $userStates = [];
-        foreach ($userIds as $uid) {
-            $userStates[$uid] = $redis->hgetall("room:{$roomId}:user:{$uid}");
-            $userStates[$uid]['dice'] = json_decode($userStates[$uid]['dice'], true);
+        $userDtos   = $dao->findAllByRoomId($roomId);
+        foreach ($userDtos as $uid => $dto) {
+            $userStates[$uid] = [
+                'pos_x' => $dto->getPosX(),
+                'pos_y' => $dto->getPosY(),
+                'dice'  => $dto->getDice()->toArray(),
+            ];
         }
 
         $curr = $userStates[$userId];
@@ -129,11 +136,27 @@ class Dice
 
         // Redis 저장
         foreach ($userStates as $uid => $state) {
-            $redis->hmset("room:{$roomId}:user:{$uid}", [
-                'pos_x' => $state['pos_x'],
-                'pos_y' => $state['pos_y'],
-                'dice'  => json_encode($state['dice'], JSON_UNESCAPED_UNICODE),
-            ]);
+            $orig = $userDtos[$uid] ?? null;
+            if (!$orig) {
+                continue;
+            }
+            $dto = new UserDto(
+                $roomId,
+                $uid,
+                $state['pos_x'],
+                $state['pos_y'],
+                $orig->getExileMarkCount(),
+                new DiceDto(
+                    $state['dice']['top'],
+                    $state['dice']['bottom'],
+                    $state['dice']['left'],
+                    $state['dice']['right'],
+                    $state['dice']['front'],
+                    $state["dice"]["back"],
+                ),
+                $orig->getJoinedAt()
+            );
+            $dao->save($dto);
             $redis->expire("room:{$roomId}:user:{$uid}", 60 * 60 * 24);
         }
 

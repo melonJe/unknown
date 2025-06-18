@@ -102,4 +102,22 @@ class UserDto
             'joined_at'  => $this->joinedAt->format(DateTimeInterface::ATOM),
         ];
     }
+    /**
+     * Convert DTO to plain array for application use.
+     *
+     * @return array<string,mixed>
+     */
+    public function toArray(): array
+    {
+        return [
+            'room'             => $this->roomId,
+            'user'             => $this->userId,
+            'pos_x'            => $this->posX,
+            'pos_y'            => $this->posY,
+            'exile_mark_count' => $this->exileMarkCount,
+            'dice'             => $this->dice->toArray(),
+            'joined_at'        => $this->joinedAt->format(DateTimeInterface::ATOM),
+        ];
+    }
+
 }
