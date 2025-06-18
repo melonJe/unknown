@@ -68,6 +68,10 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
             break;
         case 'start_game':
             $result = Room::startGame($msg['room_id']);
+            if (isset($result['error'])) {
+                $conn->send(json_encode(['type' => 'error', 'message' => 'invalid operation']));
+                break;
+            }
             foreach ($ws_worker->connections as $c) {
                 if ($c->roomId === $msg['room_id']) {
                     $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
@@ -79,6 +83,18 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
             Dice::move($msg['user_id'], $msg['room_id'], $msg['direction']);
             foreach ($ws_worker->connections as $c) {
                 $c->send(json_encode(['type' => 'dices_data', 'dices' => user::getDices($msg['room_id'])]));
+            }
+            break;
+        case 'set_start':
+            $ok = Room::setStartTile($msg['room_id'], $msg['user_id'], (int)$msg['x'], (int)$msg['y'], $msg['dice']);
+            if (!$ok) {
+                $conn->send(json_encode(['type' => 'error', 'message' => 'invalid start']));
+                break;
+            }
+            foreach ($ws_worker->connections as $c) {
+                if ($c->roomId === $msg['room_id']) {
+                    $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
+                }
             }
             break;
 
