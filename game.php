@@ -371,9 +371,8 @@ if (!$room_id) {
             return data;
         }
 
-        function createPreviewDice() {
-            const wrap = document.getElementById('start-dice');
-            wrap.innerHTML = '';
+        function createPreviewDice(container) {
+            container.innerHTML = '';
             const cont = document.createElement('div');
             cont.className = 'dice-container';
             const cube = document.createElement('div');
@@ -391,14 +390,14 @@ if (!$room_id) {
             document.addEventListener('mousemove', e=>{
                 if(!drag) return; const dx=e.clientX-sx; const dy=e.clientY-sy; sx=e.clientX; sy=e.clientY; ry+=dx*0.5; rx-=dy*0.5; ry=Math.max(-45,Math.min(45,ry)); rx=Math.max(-45,Math.min(45,rx)); cube.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg)`; });
             document.addEventListener('mouseup', e=>{
-                if(!drag) return; drag=false; cube.style.transition='transform 0.5s ease'; cube.style.transform='rotateX(0deg) rotateY(0deg)'; let dx=e.clientX-sx; let dy=e.clientY-sy; if(Math.abs(dx)<50 && Math.abs(dy)<50) return; let dir; if(Math.abs(dx)>Math.abs(dy)) dir=dx>0?'right':'left'; else dir=dy>0?'down':'up'; startDiceData=rollDice(startDiceData,dir); createPreviewDice(); });
-            wrap.appendChild(cont);
+                if(!drag) return; drag=false; cube.style.transition='transform 0.5s ease'; cube.style.transform='rotateX(0deg) rotateY(0deg)'; let dx=e.clientX-sx; let dy=e.clientY-sy; if(Math.abs(dx)<50 && Math.abs(dy)<50) return; let dir; if(Math.abs(dx)>Math.abs(dy)) dir=dx>0?'right':'left'; else dir=dy>0?'down':'up'; startDiceData=rollDice(startDiceData,dir); if(selectedTile) createPreviewDice(selectedTile); });
+            container.appendChild(cont);
             startDiceEl = cont;
         }
 
         function enableStartSelection() {
             if (!selectingStart) return;
-            createPreviewDice();
+            document.getElementById('start-dice').innerHTML = '';
             document.querySelectorAll('.tile.start').forEach(t => {
                 t.classList.add('selectable');
                 t.addEventListener('click', handleStartClick);
@@ -411,26 +410,40 @@ if (!$room_id) {
                 t.replaceWith(t.cloneNode(true));
             });
             document.getElementById('start-dice').innerHTML = '';
+            if (selectedTile) {
+                selectedTile.innerHTML = selectedTile.textContent.trim();
+                selectedTile = null;
+            }
         }
 
+        let selectedTile = null;
         function handleStartClick(e) {
             if (startOrder[startIndex] !== myUserId) return;
             const tile = e.currentTarget;
-            const idx = Array.prototype.indexOf.call(tile.parentNode.children, tile);
-            const x = (idx % boardWidth) + 1;
-            const y = Math.floor(idx / boardWidth) + 1;
-            ws.send(JSON.stringify({
-                action: 'set_start',
-                room_id: roomId,
-                user_id: myUserId,
-                x: x,
-                y: y,
-                dice: startDiceData
-            }));
-            disableStartSelection();
-            startIndex++;
-            if (startOrder[startIndex] === myUserId) {
-                enableStartSelection();
+            if (!selectedTile) {
+                selectedTile = tile;
+                createPreviewDice(tile);
+            } else if (tile === selectedTile) {
+                const idx = Array.prototype.indexOf.call(tile.parentNode.children, tile);
+                const x = (idx % boardWidth) + 1;
+                const y = Math.floor(idx / boardWidth) + 1;
+                ws.send(JSON.stringify({
+                    action: 'set_start',
+                    room_id: roomId,
+                    user_id: myUserId,
+                    x: x,
+                    y: y,
+                    dice: startDiceData
+                }));
+                disableStartSelection();
+                startIndex++;
+                if (startOrder[startIndex] === myUserId) {
+                    enableStartSelection();
+                }
+            } else {
+                selectedTile.innerHTML = selectedTile.textContent.trim();
+                selectedTile = tile;
+                createPreviewDice(tile);
             }
         }
     </script>

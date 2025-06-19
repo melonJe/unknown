@@ -53,9 +53,16 @@ class DiceHelper
     // 특정 위치가 유효한 타일(이동 가능)인지 검사
     public static function isValidTile(int $x, int $y, array $tiles): bool
     {
-        if ($tiles[$x][$y]['type'] !== 'start') {
-            return true;
+        // 좌표가 보드 범위를 벗어나면 이동 불가
+        if (!isset($tiles[$x][$y])) {
+            return false;
         }
-        return false;
+
+        // 게임 시작 후에는 start 타일로 이동할 수 없도록 제한
+        if (($tiles[$x][$y]['type'] ?? '') === 'start') {
+            return false;
+        }
+
+        return true;
     }
 }

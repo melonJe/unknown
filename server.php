@@ -62,14 +62,18 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
             $conn->send(json_encode(['type' => 'room_created', 'room_id' => $roomId]));
             break;
         case 'join_room':
-            Room::joinGame($msg['user_id'], $msg['room_id']);
+            $joined = Room::joinGame($msg['user_id'], $msg['room_id']);
+            if (!$joined) {
+                $conn->send(json_encode(['type' => 'error', 'message' => 'room_full']));
+                break;
+            }
             $conn->send(json_encode(['type' => 'board_data', 'board' => Room::getBoard($msg['room_id'])]));
-            $conn->send(json_encode(['type' => 'dices_data', 'dices' => user::getDices($msg['room_id'])]));
+            $conn->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
             break;
         case 'start_game':
             $result = Room::startGame($msg['room_id']);
             if (isset($result['error'])) {
-                $conn->send(json_encode(['type' => 'error', 'message' => 'invalid operation']));
+                $conn->send(json_encode(['type' => 'error', 'message' => $result['error']]));
                 break;
             }
             foreach ($ws_worker->connections as $c) {
@@ -82,7 +86,7 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
         case 'move':
             Dice::move($msg['user_id'], $msg['room_id'], $msg['direction']);
             foreach ($ws_worker->connections as $c) {
-                $c->send(json_encode(['type' => 'dices_data', 'dices' => user::getDices($msg['room_id'])]));
+                $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
             }
             break;
         case 'set_start':
@@ -119,7 +123,7 @@ $ws_worker->onClose = function (TcpConnection $conn) use (&$ws_worker) {
                 $c->send(json_encode([
                     'type'  => 'user_out',
                     'msg'   => "{$userId}님의 연결이 끊겼습니다.",
-                    'dices' => user::getDices($roomId)
+                    'dices' => User::getDices($roomId)
                 ]));
             }
         }
