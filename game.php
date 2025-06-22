@@ -297,7 +297,10 @@ if (!$room_id) {
                 dragging = true;
                 startX = e.clientX;
                 startY = e.clientY;
-                dragStart = { x: e.clientX, y: e.clientY };
+                dragStart = {
+                    x: e.clientX,
+                    y: e.clientY
+                };
                 cube.style.transition = 'none';
             });
 
@@ -349,11 +352,11 @@ if (!$room_id) {
 
             setupDiceDrag(cube, (dx, dy) => {
                 if (!isMine) return;
-                if (Math.abs(dx) < 50 && Math.abs(dy) < 50) return;
+                if (Math.abs(dx) < 200 && Math.abs(dy) < 200) return;
 
-                const direction = Math.abs(dx) > Math.abs(dy)
-                    ? (dx > 0 ? 'right' : 'left')
-                    : (dy > 0 ? 'down' : 'up');
+                const direction = Math.abs(dx) > Math.abs(dy) ?
+                    (dx > 0 ? 'right' : 'left') :
+                    (dy > 0 ? 'down' : 'up');
 
                 ws.send(JSON.stringify({
                     action: 'move',
@@ -422,9 +425,10 @@ if (!$room_id) {
             });
 
             setupDiceDrag(cube, (dx, dy) => {
-                const dir = Math.abs(dx) > Math.abs(dy)
-                    ? (dx > 0 ? 'right' : 'left')
-                    : (dy > 0 ? 'down' : 'up');
+                if (Math.abs(dx) < 200 && Math.abs(dy) < 200) return;
+                const dir = Math.abs(dx) > Math.abs(dy) ?
+                    (dx > 0 ? 'right' : 'left') :
+                    (dy > 0 ? 'down' : 'up');
 
                 startDiceData = rollDice(startDiceData, dir);
                 cube.querySelectorAll('.face').forEach(f => {
