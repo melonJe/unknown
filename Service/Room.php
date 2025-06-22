@@ -8,7 +8,6 @@ require_once LIB_PATH . '/postgres.php';
 
 use DAO\RoomDao;
 use Service\Board;
-use Service\Turn;
 use Exception;
 
 class Room

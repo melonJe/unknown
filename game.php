@@ -54,8 +54,6 @@ if (!$room_id) {
                 ws = new WebSocket("ws://localhost:8080/?roomId=" + roomId + "&userId=" + myUserId);
 
                 ws.onopen = () => {
-                    console.log('웹소켓 연결됨');
-                    console.log('[방법 A] 유저 ID:', myUserId);
                     ws.send(JSON.stringify({
                         action: 'join_room',
                         room_id: roomId,
@@ -111,16 +109,13 @@ if (!$room_id) {
                             break;
 
                         default:
-                            console.log('알 수 없는 메시지:', msg);
+                            console.warn('알 수 없는 메시지:', msg);
                     }
                 };
 
-                ws.onclose = () => {
-                    console.log('웹소켓 연결 끊김');
-                };
+                ws.onclose = () => {};
 
-                ws.onerror = (e) => {
-                    console.log('웹소켓 오류:', e);
+                ws.onerror = () => {
                     ws.close();
                 };
             } catch (error) {
@@ -290,6 +285,50 @@ if (!$room_id) {
             return data;
         }
 
+        function setupDiceDrag(cube, onEnd) {
+            let dragging = false;
+            let startX = 0,
+                startY = 0;
+            let rotX = 0,
+                rotY = 0;
+            let dragStart = null;
+
+            cube.addEventListener('mousedown', (e) => {
+                dragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                dragStart = { x: e.clientX, y: e.clientY };
+                cube.style.transition = 'none';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!dragging) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                startX = e.clientX;
+                startY = e.clientY;
+
+                rotY += dx * 0.5;
+                rotX -= dy * 0.5;
+                rotX = Math.max(-45, Math.min(45, rotX));
+                rotY = Math.max(-45, Math.min(45, rotY));
+                cube.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+            });
+
+            document.addEventListener('mouseup', (e) => {
+                if (!dragging) return;
+                dragging = false;
+                cube.style.transition = 'transform 0.5s ease';
+                cube.style.transform = 'rotateX(0deg) rotateY(0deg)';
+                const dx = e.clientX - dragStart.x;
+                const dy = e.clientY - dragStart.y;
+                dragStart = null;
+                rotX = 0;
+                rotY = 0;
+                onEnd(dx, dy);
+            });
+        }
+
         // 주사위 DOM 생성 및 드래그 이벤트 처리 (기존 createDiceElement 함수 수정)
         function createDiceElement(diceData, tileData, isMine = false) {
             tileData.textContent = "";
@@ -308,74 +347,20 @@ if (!$room_id) {
             }
             container.appendChild(cube);
 
-            let dragging = false;
-            let startX = 0,
-                startY = 0;
-            let rotX = 0,
-                rotY = 0;
-            let dragStart = null;
-
-            container.addEventListener('mousedown', (e) => {
-                // if (!isMine) return;
-                dragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                dragStart = {
-                    x: e.clientX,
-                    y: e.clientY
-                };
-                cube.style.transition = 'none';
-            });
-
-            document.addEventListener('mousemove', (e) => {
-                if (!dragging) return;
-                const dx = e.clientX - startX;
-                const dy = e.clientY - startY;
-                startX = e.clientX;
-                startY = e.clientY;
-
-                rotY += dx * 0.5;
-                rotX -= dy * 0.5;
-                rotX = Math.max(-45, Math.min(45, rotX));
-                rotY = Math.max(-45, Math.min(45, rotY));
-                cube.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
-            });
-
-            document.addEventListener('mouseup', async (e) => {
-                if (!dragging) return;
-                dragging = false;
-                cube.style.transition = 'transform 0.5s ease';
-                cube.style.transform = `rotateX(0deg) rotateY(0deg)`;
-                rotX = 0;
-                rotY = 0;
+            setupDiceDrag(cube, (dx, dy) => {
                 if (!isMine) return;
+                if (Math.abs(dx) < 50 && Math.abs(dy) < 50) return;
 
-                if (!dragStart) return;
-                const dx = e.clientX - dragStart.x;
-                const dy = e.clientY - dragStart.y;
+                const direction = Math.abs(dx) > Math.abs(dy)
+                    ? (dx > 0 ? 'right' : 'left')
+                    : (dy > 0 ? 'down' : 'up');
 
-                if (Math.abs(dx) < 50 && Math.abs(dy) < 50) {
-                    dragStart = null;
-                    return;
-                }
-
-                // 드래그 방향 판별
-                let direction;
-                if (Math.abs(dx) > Math.abs(dy)) {
-                    direction = dx > 0 ? 'right' : 'left';
-                } else {
-                    direction = dy > 0 ? 'down' : 'up';
-                }
-
-                // WebSocket으로 move 메시지 전송
                 ws.send(JSON.stringify({
                     action: 'move',
                     room_id: roomId,
                     user_id: myUserId,
-                    direction: direction
+                    direction
                 }));
-
-                dragStart = null;
             });
 
             return container;
@@ -405,13 +390,15 @@ if (!$room_id) {
 
         function handleStartClick(e) {
             const tile = e.currentTarget;
+            if (selectedTile && selectedTile !== tile) {
+                selectedTile.innerHTML = selectedTile.textContent.trim();
+            }
+            selectedTile = tile;
             tile.textContent = '';
 
-            // 주사위 컨테이너 생성
             const container = document.createElement('div');
             container.className = 'dice-container';
 
-            // 주사위 DOM 생성
             let cube = document.createElement('div');
             cube.className = 'dice';
             for (const face of ['top', 'bottom', 'left', 'right', 'front', 'back']) {
@@ -422,81 +409,31 @@ if (!$room_id) {
             }
             container.appendChild(cube);
 
-            // 회전 상태 변수
-            let isDragging = false;
-            let startX = 0,
-                startY = 0;
-            let rotX = 0,
-                rotY = 0;
+            cube.addEventListener('dblclick', () => {
+                ws.send(JSON.stringify({
+                    action: 'set_start',
+                    room_id: roomId,
+                    user_id: myUserId,
+                    x: Number(tile.dataset.x),
+                    y: Number(tile.dataset.y),
+                    dice: startDiceData
+                }));
+                disableStartSelection();
+            });
 
-            container.addEventListener('mousedown', e => {
-                console.log("mousedown on cube");
-                isDragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                cube.style.transition = 'none';
+            setupDiceDrag(cube, (dx, dy) => {
+                const dir = Math.abs(dx) > Math.abs(dy)
+                    ? (dx > 0 ? 'right' : 'left')
+                    : (dy > 0 ? 'down' : 'up');
 
-                const onMouseMove = e => {
-                    if (!isDragging) return;
-                    const dx = e.clientX - startX;
-                    const dy = e.clientY - startY;
-                    startX = e.clientX;
-                    startY = e.clientY;
-                    rotY += dx * 0.5;
-                    rotX -= dy * 0.5;
-                    rotY = Math.max(-45, Math.min(45, rotY));
-                    rotX = Math.max(-45, Math.min(45, rotX));
-                    cube.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
-                };
-
-                const onMouseUp = e => {
-                    if (!isDragging) return;
-                    isDragging = false;
-
-                    const dx = e.clientX - startX;
-                    const dy = e.clientY - startY;
-
-                    if (Math.abs(dx) < 50 && Math.abs(dy) < 50) {
-                        // 클릭 → 서버 전송
-                        ws.send(JSON.stringify({
-                            action: 'set_start',
-                            room_id: roomId,
-                            user_id: myUserId,
-                            x: Number(tile.dataset.x),
-                            y: Number(tile.dataset.y),
-                            dice: diceData
-                        }));
-                    } else {
-                        // 드래그 → 주사위 방향 회전 후 교체
-                        const dir = Math.abs(dx) > Math.abs(dy) ?
-                            (dx > 0 ? 'right' : 'left') :
-                            (dy > 0 ? 'down' : 'up');
-
-                        startDiceData = rollDice(startDiceData, dir);
-
-                        // 주사위 교체
-                        container.removeChild(cube);
-                        cube = document.createElement('div');
-                        cube.className = 'dice';
-                        for (const face of ['top', 'bottom', 'left', 'right', 'front', 'back']) {
-                            const faceDiv = document.createElement('div');
-                            faceDiv.className = `face ${face}`;
-                            faceDiv.style.background = colorMap[startDiceData[face]] || 'white';
-                            cube.appendChild(faceDiv);
-                        }
-                        container.appendChild(cube);
-                    }
-
-                    document.removeEventListener('mousemove', onMouseMove);
-                    document.removeEventListener('mouseup', onMouseUp);
-                };
-
-                document.addEventListener('mousemove', onMouseMove);
-                document.addEventListener('mouseup', onMouseUp);
+                startDiceData = rollDice(startDiceData, dir);
+                cube.querySelectorAll('.face').forEach(f => {
+                    const faceName = f.classList[1];
+                    f.style.background = colorMap[startDiceData[faceName]] || 'white';
+                });
             });
 
             tile.appendChild(container);
-            disableStartSelection();
         }
 
         // function handleStartDiceClick(e) {
