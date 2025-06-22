@@ -65,4 +65,39 @@ class DiceHelper
 
         return true;
     }
+
+    // 기본 주사위 전개도를 기준으로 윗면과 앞면 색으로 전체 전개도를 계산
+    public static function orientationFromTopFront(string $top, string $front): ?array
+    {
+        static $lookup = null;
+        if ($lookup === null) {
+            $base = [
+                'top'    => 'red',
+                'bottom' => 'blue',
+                'left'   => 'green',
+                'right'  => 'yellow',
+                'front'  => 'white',
+                'back'   => 'purple',
+            ];
+
+            $lookup = [];
+            $queue  = [$base];
+            $seen   = [];
+            while ($queue) {
+                $state = array_pop($queue);
+                $key = implode('|', $state);
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $lookup[$state['top'] . '|' . $state['front']] = $state;
+                foreach (['up', 'down', 'left', 'right'] as $dir) {
+                    $queue[] = self::roll($state, $dir);
+                }
+            }
+        }
+
+        $k = $top . '|' . $front;
+        return $lookup[$k] ?? null;
+    }
 }
