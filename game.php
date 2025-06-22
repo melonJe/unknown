@@ -352,7 +352,7 @@ if (!$room_id) {
 
             setupDiceDrag(cube, (dx, dy) => {
                 if (!isMine) return;
-                if (Math.abs(dx) < 200 && Math.abs(dy) < 200) return;
+                if (Math.abs(dx) < 50 && Math.abs(dy) < 50) return;
 
                 const direction = Math.abs(dx) > Math.abs(dy) ?
                     (dx > 0 ? 'right' : 'left') :
@@ -425,7 +425,7 @@ if (!$room_id) {
             });
 
             setupDiceDrag(cube, (dx, dy) => {
-                if (Math.abs(dx) < 200 && Math.abs(dy) < 200) return;
+                if (Math.abs(dx) < 50 && Math.abs(dy) < 50) return;
                 const dir = Math.abs(dx) > Math.abs(dy) ?
                     (dx > 0 ? 'right' : 'left') :
                     (dy > 0 ? 'down' : 'up');
