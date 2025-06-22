@@ -23,6 +23,7 @@ use Workerman\Protocols\Http\Request;
 use Service\Room;
 use Service\User;
 use Service\Dice;
+use Service\Turn;
 
 $ws_worker = new Worker("websocket://0.0.0.0:8080");
 
@@ -88,9 +89,26 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                 }
                 break;
             case 'move':
-                Dice::move($msg['user_id'], $msg['room_id'], $msg['direction']);
+                $result = Dice::move($msg['user_id'], $msg['room_id'], $msg['direction']);
+                $turnService = new Turn();
+                $nextAction = ($result['exile'] ?? false) ? 'setStartTile' : 'move';
+                if (!($result['extra_turn'] ?? false)) {
+                    $newOrder = $turnService->advanceTurn($msg['room_id'], [
+                        'user'   => $msg['user_id'],
+                        'action' => $nextAction,
+                    ]);
+                } else {
+                    $newOrder = $turnService->getTurnOrder($msg['room_id']);
+                }
+
                 foreach ($ws_worker->connections as $c) {
-                    $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
+                    if ($c->roomId === $msg['room_id']) {
+                        $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
+                        $c->send(json_encode(['type' => 'next_turn', 'turn_order' => $newOrder]));
+                        if ($result['exile'] ?? false) {
+                            $c->send(json_encode(['type' => 'exiled', 'user' => $msg['user_id']]));
+                        }
+                    }
                 }
                 break;
             case 'set_start':
@@ -99,9 +117,19 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                     $conn->send(json_encode(['type' => 'error', 'message' => 'invalid start']));
                     break;
                 }
+                $turnService = new Turn();
+                $newOrder = $turnService->advanceTurn($msg['room_id'], [
+                    'user'   => $msg['user_id'],
+                    'action' => 'move',
+                ]);
+                if ($turnService->isSetupComplete($msg['room_id'])) {
+                    $newOrder = $turnService->reorderByStartScore($msg['room_id']);
+                }
+
                 foreach ($ws_worker->connections as $c) {
                     if ($c->roomId === $msg['room_id']) {
                         $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
+                        $c->send(json_encode(['type' => 'next_turn', 'turn_order' => $newOrder]));
                     }
                 }
                 break;

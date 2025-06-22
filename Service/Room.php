@@ -285,6 +285,7 @@ class Room
                 $redis->hmset($userKey, [
                     'pos_x' => -1,
                     'pos_y' => -1,
+                    'start_score' => 0,
                 ]);
                 $redis->expire($userKey, 60 * 60 * 24);
             }
@@ -317,11 +318,14 @@ class Room
             return false;
         }
 
+        $startScore = (int)($tiles[$x][$y]['score'] ?? 0);
+
         $userKey = "room:{$roomId}:user:{$userId}";
         $redis->hmset($userKey, [
-            'pos_x' => $x,
-            'pos_y' => $y,
-            'dice'  => json_encode($orientation),
+            'pos_x'       => $x,
+            'pos_y'       => $y,
+            'dice'        => json_encode($orientation),
+            'start_score' => $startScore,
         ]);
         $redis->expire($userKey, 60 * 60 * 24);
         return true;
