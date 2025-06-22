@@ -8,7 +8,7 @@ require_once LIB_PATH . '/postgres.php';
 
 use DAO\RoomDao;
 use Service\Board;
-use Service\Turn;
+use Helpers\DiceHelper;
 use Exception;
 
 class Room
@@ -312,11 +312,16 @@ class Room
                 return false;
             }
         }
+        $orientation = DiceHelper::orientationFromTopFront($dice['top'] ?? '', $dice['front'] ?? '');
+        if (!$orientation) {
+            return false;
+        }
+
         $userKey = "room:{$roomId}:user:{$userId}";
         $redis->hmset($userKey, [
             'pos_x' => $x,
             'pos_y' => $y,
-            'dice'  => json_encode($dice),
+            'dice'  => json_encode($orientation),
         ]);
         $redis->expire($userKey, 60 * 60 * 24);
         return true;
