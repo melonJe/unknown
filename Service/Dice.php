@@ -4,6 +4,7 @@ namespace Service;
 
 use Helpers\DiceHelper;
 use DAO\UserDao;
+use DAO\RoomDao;
 use DTO\UserDto;
 use DTO\DiceDto;
 
@@ -132,8 +133,8 @@ class Dice
         $userStates[$userId]['pos_y'] = $ny;
         $userStates[$userId]['dice']  = $myNewDice;
 
-        // 히든 룰 체크 (확장 포인트)
-        // if (HiddenRuleHelper::shouldFire(...)) { ... }
+        // 히든 룰 적용
+        $extra = self::applyHiddenRules($roomId, $userId, $userStates, $userDtos, $tiles);
 
         // Redis 저장
         foreach ($userStates as $uid => $state) {
@@ -165,6 +166,106 @@ class Dice
             'success'      => true,
             'new_position' => ['x' => $nx, 'y' => $ny],
             'dice'         => $myNewDice,
+            'extra_turn'   => in_array('extra_turn', $extra, true),
+            'exile'        => in_array('exile', $extra, true),
         ];
+    }
+
+    /**
+     * Apply hidden rules after movement and modify user states accordingly.
+     *
+     * @param string                   $roomId
+     * @param string                   $userId
+     * @param array<string,array>      $userStates
+     * @param array<string,UserDto>    $userDtos
+     * @param array                    $tiles
+     * @return array<int,string>       List of triggered events
+     */
+    private static function applyHiddenRules(string $roomId, string $userId, array &$userStates, array $userDtos, array $tiles): array
+    {
+        $redis   = getRedis();
+        $userDao = new UserDao($redis);
+        $roomDao = new \DAO\RoomDao($redis);
+        $roomDto = $roomDao->findByRoomId((int)$roomId);
+        if (!$roomDto) {
+            return [];
+        }
+
+        $rule = new \Rule();
+        $allUsers = [];
+        foreach ($userStates as $uid => $state) {
+            $orig = $userDtos[$uid];
+            $allUsers[$uid] = new UserDto(
+                $roomId,
+                $uid,
+                $state['pos_x'],
+                $state['pos_y'],
+                $orig->getExileMarkCount(),
+                new DiceDto(
+                    $state['dice']['top'],
+                    $state['dice']['bottom'],
+                    $state['dice']['left'],
+                    $state['dice']['right'],
+                    $state['dice']['front'],
+                    $state['dice']['back'],
+                ),
+                $orig->getJoinedAt()
+            );
+        }
+
+        $events = [];
+
+        $user = $allUsers[$userId];
+        if ($rule->isExileCondition($roomDto, $user, $userDao)) {
+            $userStates[$userId]['pos_x'] = -1;
+            $userStates[$userId]['pos_y'] = -1;
+            $events[] = 'exile';
+            return $events;
+        }
+
+        if ($rule->isNoSameColorInNine($roomDto, $user, $allUsers, $roomDao)) {
+            $colors = ['red', 'blue', 'yellow', 'green', 'purple', 'white'];
+            $current = $userStates[$userId]['dice']['top'];
+            do {
+                $new = $colors[array_rand($colors)];
+            } while ($new === $current);
+            $userStates[$userId]['dice']['top'] = $new;
+        }
+
+        if ($rule->isThreeOrMoreInNine($roomDto, $user, $allUsers, $roomDao)) {
+            foreach ($allUsers as $uid => $dto) {
+                if ($uid === $userId) {
+                    continue;
+                }
+                if ($dto->getDice()->getFrontColor() === $user->getDice()->getFrontColor()) {
+                    $sx = $dto->getPosX();
+                    $sy = $dto->getPosY();
+                    if (DiceHelper::isValidTile($sx, $sy - 1, $tiles)) {
+                        $userStates[$uid]['pos_y'] = $sy - 1;
+                    }
+                    break;
+                }
+            }
+        }
+
+        if ($rule->isYellowSpecial($roomDto, $user, $allUsers, $roomDao)) {
+            foreach ($allUsers as $uid => $dto) {
+                if ($uid === $userId) {
+                    continue;
+                }
+                $sx = $dto->getPosX();
+                $sy = $dto->getPosY();
+                if (DiceHelper::isValidTile($sx, $sy - 1, $tiles)) {
+                    $userStates[$uid]['pos_y'] = $sy - 1;
+                }
+                break;
+            }
+        }
+
+        if ($rule->isLineOfThree($roomDto, $user, $allUsers, $roomDao)) {
+            $events[] = 'extra_turn';
+        }
+
+        return $events;
     }
 }
