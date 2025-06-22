@@ -83,18 +83,35 @@
 
     function renderRoomList(rooms) {
       const list = document.getElementById('room-list');
-      list.innerHTML = '';
+      list.textContent = '';
 
-      if (!rooms || rooms.length === 0) {
+      if (!rooms || !Object.keys(rooms).length) {
         list.innerHTML = '<li>현재 참여 가능한 방이 없습니다.</li>';
         return;
       }
-      rooms.forEach(roomId => {
-        const li = document.createElement('li');
-        li.innerHTML = `<a href="game.php?room_id=${roomId}">▶ 방 #${roomId}</a>`;
-        list.appendChild(li);
-      });
+
+      const frag = document.createDocumentFragment();
+
+      Object
+        .entries(rooms)
+        .sort(([, a], [, b]) => (a === '1') - (b === '1'))
+        .forEach(([id, started]) => {
+          const li = document.createElement('li');
+          if (started !== '1') {
+            const a = document.createElement('a');
+            a.href = `game.php?room_id=${encodeURIComponent(id)}`;
+            a.textContent = `▶ 방 #${id}`;
+            li.appendChild(a);
+          } else {
+            li.textContent = `▶ 방 #${id}`;
+            li.classList.add('disabled-room');
+          }
+          frag.appendChild(li);
+        });
+
+      list.appendChild(frag);
     }
+
 
     async function createRoom() {
       ws.send(JSON.stringify({

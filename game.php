@@ -29,9 +29,6 @@ if (!$room_id) {
         let boardWidth;
         let boardData;
         let ws;
-        let selectingStart = false;
-        let startOrder = [];
-        let startIndex = 0;
         let startDiceData = {
             top: 'red',
             bottom: 'blue',
@@ -66,11 +63,10 @@ if (!$room_id) {
                     }));
                     document.getElementById('startBtn').onclick = () => {
                         ws.send(JSON.stringify({
-                            action: 'start_game',
+                            action: 'next_turn',
                             room_id: roomId,
                             user_id: myUserId
                         }));
-                        document.getElementById('startBtn').style.display = 'none';
                     };
                 };
 
@@ -79,33 +75,39 @@ if (!$room_id) {
 
                     switch (msg.type) {
                         case 'board_data':
-                            // 초기 보드 렌더링
-                            boardData = msg.board
+                            boardData = msg.board;
                             break;
+
                         case 'user_out':
+                            renderBoard(boardData);
+                            break;
 
                         case 'dices_data':
-                            // 주사위 렌더링
+                            if (msg.board) {
+                                boardData = msg.board;
+                            }
                             renderBoard(boardData);
                             renderUsers(msg.dices.player);
                             break;
-                        case 'game_started':
+
+                        case 'next_turn':
                             displayTurnOrder(msg.turn_order);
-                            startOrder = msg.turn_order;
-                            startIndex = 0;
-                            selectingStart = true;
-                            if (startOrder[startIndex] === myUserId) {
+                            currentUser = msg.turn_order[0];
+
+                            if (currentUser.user === myUserId && currentUser.action === 'setStartTile') {
                                 enableStartSelection();
                             }
-                            document.getElementById('startBtn').style.display = 'none';
                             break;
+
                         case 'dice_moved':
-                            // 한 사용자가 주사위 이동했을 때 해당 사용자 정보만 업데이트
                             updateDice(msg.user);
                             break;
+
                         case 'error':
-                            // 서버에서 보낸 오류 메시지 표시 (예: 턴 아님)
                             alert(msg.message);
+                            if (msg.action) {
+                                handleAction(msg.action);
+                            }
                             break;
 
                         default:
@@ -143,6 +145,9 @@ if (!$room_id) {
 
         // 보드 렌더 함수 (기존 renderBoard 함수와 동일)
         function renderBoard(data) {
+            if (data.started === '1') {
+                document.getElementById('startBtn').style.display = 'none';
+            }
             const board = document.getElementById('board');
             boardWidth = data.width;
             document.documentElement.style.setProperty('--cols', data.width);
@@ -169,6 +174,10 @@ if (!$room_id) {
                     const div = document.createElement('div');
                     div.className = 'tile';
 
+                    // x, y 좌표 dataset에 저장
+                    div.dataset.x = x + 1; // 1부터 시작하고 싶으면 +1
+                    div.dataset.y = y + 1;
+
                     if (tile) {
                         div.classList.add(tile.type);
                         if (tile.type === 'floor' && tile.color) {
@@ -180,6 +189,7 @@ if (!$room_id) {
                     } else {
                         div.style.backgroundColor = '#eee';
                     }
+
                     board.appendChild(div);
                 }
             }
@@ -187,19 +197,19 @@ if (!$room_id) {
 
         function renderUsers(users) {
             document.querySelectorAll('.dice-container').forEach(el => el.remove());
-
-            // users가 { user_id: { pos_x, pos_y, dice }, ... } 형태라고 가정
             for (const [user_id, userData] of Object.entries(users)) {
                 const {
                     dice,
                     pos_x,
                     pos_y
                 } = userData;
-                const tileIndex = (pos_y - 1) * getBoardWidth() + (pos_x - 1);
-                const tile = document.getElementById('board').children[tileIndex];
-                const isMine = (user_id === myUserId);
-                const diceEl = createDiceElement(dice, tile, isMine);
-                tile.appendChild(diceEl);
+                if (pos_x > 0 && pos_y > 0) {
+                    const tileIndex = (pos_y - 1) * getBoardWidth() + (pos_x - 1);
+                    const tile = document.getElementById('board').children[tileIndex];
+                    const isMine = (user_id === myUserId);
+                    const diceEl = createDiceElement(dice, tile, isMine);
+                    tile.appendChild(diceEl);
+                }
             }
         }
 
@@ -238,9 +248,51 @@ if (!$room_id) {
             el.textContent = 'Turn: ' + order.join(' → ');
         }
 
+        function rollDice(data, dir) {
+            switch (dir) {
+                case 'up':
+                    return {
+                        top: data.front,
+                            bottom: data.back,
+                            left: data.left,
+                            right: data.right,
+                            front: data.bottom,
+                            back: data.top
+                    };
+                case 'down':
+                    return {
+                        top: data.back,
+                            bottom: data.front,
+                            left: data.left,
+                            right: data.right,
+                            front: data.top,
+                            back: data.bottom
+                    };
+                case 'left':
+                    return {
+                        top: data.top,
+                            bottom: data.bottom,
+                            left: data.front,
+                            right: data.back,
+                            front: data.right,
+                            back: data.left
+                    };
+                case 'right':
+                    return {
+                        top: data.top,
+                            bottom: data.bottom,
+                            left: data.back,
+                            right: data.front,
+                            front: data.left,
+                            back: data.right
+                    };
+            }
+            return data;
+        }
+
         // 주사위 DOM 생성 및 드래그 이벤트 처리 (기존 createDiceElement 함수 수정)
         function createDiceElement(diceData, tileData, isMine = false) {
-            tileData.textContent = '';
+            tileData.textContent = "";
 
             const container = document.createElement('div');
             container.className = 'dice-container';
@@ -329,74 +381,7 @@ if (!$room_id) {
             return container;
         }
 
-        function rollDice(data, dir) {
-            switch (dir) {
-                case 'up':
-                    return {
-                        top: data.front,
-                        bottom: data.back,
-                        left: data.left,
-                        right: data.right,
-                        front: data.bottom,
-                        back: data.top
-                    };
-                case 'down':
-                    return {
-                        top: data.back,
-                        bottom: data.front,
-                        left: data.left,
-                        right: data.right,
-                        front: data.top,
-                        back: data.bottom
-                    };
-                case 'left':
-                    return {
-                        top: data.top,
-                        bottom: data.bottom,
-                        left: data.front,
-                        right: data.back,
-                        front: data.right,
-                        back: data.left
-                    };
-                case 'right':
-                    return {
-                        top: data.top,
-                        bottom: data.bottom,
-                        left: data.back,
-                        right: data.front,
-                        front: data.left,
-                        back: data.right
-                    };
-            }
-            return data;
-        }
-
-        function createPreviewDice(container) {
-            container.innerHTML = '';
-            const cont = document.createElement('div');
-            cont.className = 'dice-container';
-            const cube = document.createElement('div');
-            cube.className = 'dice';
-            for (const face of ['top','bottom','left','right','front','back']) {
-                const f = document.createElement('div');
-                f.className = `face ${face}`;
-                f.style.background = colorMap[startDiceData[face]] || 'white';
-                cube.appendChild(f);
-            }
-            cont.appendChild(cube);
-            let drag = false;
-            let sx=0, sy=0, rx=0, ry=0;
-            cont.addEventListener('mousedown', e=>{ drag=true; sx=e.clientX; sy=e.clientY; cube.style.transition='none'; });
-            document.addEventListener('mousemove', e=>{
-                if(!drag) return; const dx=e.clientX-sx; const dy=e.clientY-sy; sx=e.clientX; sy=e.clientY; ry+=dx*0.5; rx-=dy*0.5; ry=Math.max(-45,Math.min(45,ry)); rx=Math.max(-45,Math.min(45,rx)); cube.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg)`; });
-            document.addEventListener('mouseup', e=>{
-                if(!drag) return; drag=false; cube.style.transition='transform 0.5s ease'; cube.style.transform='rotateX(0deg) rotateY(0deg)'; let dx=e.clientX-sx; let dy=e.clientY-sy; if(Math.abs(dx)<50 && Math.abs(dy)<50) return; let dir; if(Math.abs(dx)>Math.abs(dy)) dir=dx>0?'right':'left'; else dir=dy>0?'down':'up'; startDiceData=rollDice(startDiceData,dir); if(selectedTile) createPreviewDice(selectedTile); });
-            container.appendChild(cont);
-            startDiceEl = cont;
-        }
-
         function enableStartSelection() {
-            if (!selectingStart) return;
             document.getElementById('start-dice').innerHTML = '';
             document.querySelectorAll('.tile.start').forEach(t => {
                 t.classList.add('selectable');
@@ -417,33 +402,129 @@ if (!$room_id) {
         }
 
         let selectedTile = null;
+
         function handleStartClick(e) {
-            if (startOrder[startIndex] !== myUserId) return;
             const tile = e.currentTarget;
-            if (!selectedTile) {
-                selectedTile = tile;
-                createPreviewDice(tile);
-            } else if (tile === selectedTile) {
-                const idx = Array.prototype.indexOf.call(tile.parentNode.children, tile);
-                const x = (idx % boardWidth) + 1;
-                const y = Math.floor(idx / boardWidth) + 1;
-                ws.send(JSON.stringify({
-                    action: 'set_start',
-                    room_id: roomId,
-                    user_id: myUserId,
-                    x: x,
-                    y: y,
-                    dice: startDiceData
-                }));
-                disableStartSelection();
-                startIndex++;
-                if (startOrder[startIndex] === myUserId) {
-                    enableStartSelection();
-                }
-            } else {
-                selectedTile.innerHTML = selectedTile.textContent.trim();
-                selectedTile = tile;
-                createPreviewDice(tile);
+            tile.textContent = '';
+
+            // 주사위 컨테이너 생성
+            const container = document.createElement('div');
+            container.className = 'dice-container';
+
+            // 주사위 DOM 생성
+            let cube = document.createElement('div');
+            cube.className = 'dice';
+            for (const face of ['top', 'bottom', 'left', 'right', 'front', 'back']) {
+                const faceDiv = document.createElement('div');
+                faceDiv.className = `face ${face}`;
+                faceDiv.style.background = colorMap[startDiceData[face]] || 'white';
+                cube.appendChild(faceDiv);
+            }
+            container.appendChild(cube);
+
+            // 회전 상태 변수
+            let isDragging = false;
+            let startX = 0,
+                startY = 0;
+            let rotX = 0,
+                rotY = 0;
+
+            container.addEventListener('mousedown', e => {
+                console.log("mousedown on cube");
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                cube.style.transition = 'none';
+
+                const onMouseMove = e => {
+                    if (!isDragging) return;
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    rotY += dx * 0.5;
+                    rotX -= dy * 0.5;
+                    rotY = Math.max(-45, Math.min(45, rotY));
+                    rotX = Math.max(-45, Math.min(45, rotX));
+                    cube.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+                };
+
+                const onMouseUp = e => {
+                    if (!isDragging) return;
+                    isDragging = false;
+
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+
+                    if (Math.abs(dx) < 50 && Math.abs(dy) < 50) {
+                        // 클릭 → 서버 전송
+                        ws.send(JSON.stringify({
+                            action: 'set_start',
+                            room_id: roomId,
+                            user_id: myUserId,
+                            x: Number(tile.dataset.x),
+                            y: Number(tile.dataset.y),
+                            dice: diceData
+                        }));
+                    } else {
+                        // 드래그 → 주사위 방향 회전 후 교체
+                        const dir = Math.abs(dx) > Math.abs(dy) ?
+                            (dx > 0 ? 'right' : 'left') :
+                            (dy > 0 ? 'down' : 'up');
+
+                        startDiceData = rollDice(startDiceData, dir);
+
+                        // 주사위 교체
+                        container.removeChild(cube);
+                        cube = document.createElement('div');
+                        cube.className = 'dice';
+                        for (const face of ['top', 'bottom', 'left', 'right', 'front', 'back']) {
+                            const faceDiv = document.createElement('div');
+                            faceDiv.className = `face ${face}`;
+                            faceDiv.style.background = colorMap[startDiceData[face]] || 'white';
+                            cube.appendChild(faceDiv);
+                        }
+                        container.appendChild(cube);
+                    }
+
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                };
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+
+            tile.appendChild(container);
+            disableStartSelection();
+        }
+
+        // function handleStartDiceClick(e) {
+        //     const tile = e.currentTarget;
+        //     const idx = Array.prototype.indexOf.call(tile.parentNode.children, tile);
+        //     const x = (idx % boardWidth) + 1;
+        //     const y = Math.floor(idx / boardWidth) + 1;
+        //     ws.send(JSON.stringify({
+        //         action: 'set_start',
+        //         room_id: roomId,
+        //         user_id: myUserId,
+        //         x: x,
+        //         y: y,
+        //         dice: startDiceData
+        //     }));
+        //     disableStartSelection();
+        // }
+
+        function handleAction(action) {
+            switch (action) {
+                case 'goBack':
+                    history.back();
+                    break;
+                case 'goHome':
+                    window.location.href = '/';
+                    break;
+                default:
+                    console.warn('Unknown action:', action);
             }
         }
     </script>

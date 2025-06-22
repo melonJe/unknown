@@ -161,20 +161,10 @@ class Dice
             $redis->expire("room:{$roomId}:user:{$uid}", 60 * 60 * 24);
         }
 
-        // 턴 넘기기 (확장용, 주석)
-        $nextUser = null;
-        // $allTurnList = $redis->lrange("room:{$roomId}:turn_order", 0, -1);
-        // $curIdx = array_search($userId, $allTurnList);
-        // $nextIdx = ($curIdx + 1) % count($allTurnList);
-        // $nextUser = $allTurnList[$nextIdx];
-        // $redis->hset("room:{$roomId}:turn", "current_turn_user_id", $nextUser);
-
-        // 반환
         return [
             'success'      => true,
             'new_position' => ['x' => $nx, 'y' => $ny],
             'dice'         => $myNewDice,
-            'next_turn'    => $nextUser,
         ];
     }
 }

@@ -50,60 +50,64 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
             return;
         }
         switch ($msg['action']) {
-        case 'get_room_list':
-            $rooms = Room::getRooms();
-            $conn->send(json_encode(['type' => 'room_list', 'rooms' => $rooms]));
-            break;
-        case 'create_room':
-            $roomId = Room::createRoom($msg['user_id']);
-            foreach ($ws_worker->connections as $c) {
-                $c->send(json_encode(['type' => 'room_list_changed']));
-            }
-            $conn->send(json_encode(['type' => 'room_created', 'room_id' => $roomId]));
-            break;
-        case 'join_room':
-            $joined = Room::joinGame($msg['user_id'], $msg['room_id']);
-            if (!$joined) {
-                $conn->send(json_encode(['type' => 'error', 'message' => 'room_full']));
+            case 'get_room_list':
+                $rooms = Room::getRooms();
+                $conn->send(json_encode(['type' => 'room_list', 'rooms' => $rooms]));
                 break;
-            }
-            $conn->send(json_encode(['type' => 'board_data', 'board' => Room::getBoard($msg['room_id'])]));
-            $conn->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
-            break;
-        case 'start_game':
-            $result = Room::startGame($msg['room_id']);
-            if (isset($result['error'])) {
-                $conn->send(json_encode(['type' => 'error', 'message' => $result['error']]));
-                break;
-            }
-            foreach ($ws_worker->connections as $c) {
-                if ($c->roomId === $msg['room_id']) {
-                    $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
-                    $c->send(json_encode(['type' => 'game_started', 'turn_order' => $result['turn_order']]));
+            case 'create_room':
+                $roomId = Room::createRoom($msg['user_id']);
+                foreach ($ws_worker->connections as $c) {
+                    $c->send(json_encode(['type' => 'room_list_changed']));
                 }
-            }
-            break;
-        case 'move':
-            Dice::move($msg['user_id'], $msg['room_id'], $msg['direction']);
-            foreach ($ws_worker->connections as $c) {
-                $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
-            }
-            break;
-        case 'set_start':
-            $ok = Room::setStartTile($msg['room_id'], $msg['user_id'], (int)$msg['x'], (int)$msg['y'], $msg['dice']);
-            if (!$ok) {
-                $conn->send(json_encode(['type' => 'error', 'message' => 'invalid start']));
+                $conn->send(json_encode(['type' => 'room_created', 'room_id' => $roomId]));
                 break;
-            }
-            foreach ($ws_worker->connections as $c) {
-                if ($c->roomId === $msg['room_id']) {
+            case 'join_room':
+                $joined = Room::joinGame($msg['user_id'], $msg['room_id']);
+                if (isset($joined['error'])) {
+                    $conn->send(json_encode(['type' => 'error', 'action' => "goHome", 'message' => $joined['error']]));
+                    break;
+                }
+                $conn->send(json_encode(['type' => 'board_data', 'board' => Room::getBoard($msg['room_id'])]));
+                foreach ($ws_worker->connections as $c) {
+                    if ($c->roomId === $msg['room_id']) {
+                        $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
+                    }
+                }
+                break;
+            case 'next_turn':
+                $result = Room::startGame($msg['room_id']);
+                if (isset($result['error'])) {
+                    $conn->send(json_encode(['type' => 'error', 'message' => $result['error']]));
+                    break;
+                }
+                foreach ($ws_worker->connections as $c) {
+                    if ($c->roomId === $msg['room_id']) {
+                        $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
+                        $c->send(json_encode(['type' => 'next_turn', 'turn_order' => $result['turn_order']]));
+                    }
+                }
+                break;
+            case 'move':
+                Dice::move($msg['user_id'], $msg['room_id'], $msg['direction']);
+                foreach ($ws_worker->connections as $c) {
                     $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
                 }
-            }
-            break;
+                break;
+            case 'set_start':
+                $ok = Room::setStartTile($msg['room_id'], $msg['user_id'], (int)$msg['x'], (int)$msg['y'], $msg['dice']);
+                if (!$ok) {
+                    $conn->send(json_encode(['type' => 'error', 'message' => 'invalid start']));
+                    break;
+                }
+                foreach ($ws_worker->connections as $c) {
+                    if ($c->roomId === $msg['room_id']) {
+                        $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
+                    }
+                }
+                break;
 
-        default:
-            break;
+            default:
+                break;
         }
     } catch (Throwable $e) {
         $conn->send(json_encode(['type' => 'error', 'message' => 'server_error']));
@@ -120,11 +124,13 @@ $ws_worker->onClose = function (TcpConnection $conn) use (&$ws_worker) {
         User::deleteUserData($userId, $roomId);
         if (!empty($roomId)) {
             foreach ($ws_worker->connections as $c) {
-                $c->send(json_encode([
-                    'type'  => 'user_out',
-                    'msg'   => "{$userId}님의 연결이 끊겼습니다.",
-                    'dices' => User::getDices($roomId)
-                ]));
+                if ($c->roomId === $roomId) {
+                    $c->send(json_encode([
+                        'type'  => 'user_out',
+                        'msg'   => "{$userId}님의 연결이 끊겼습니다.",
+                        'dices' => User::getDices($roomId)
+                    ]));
+                }
             }
         }
     } catch (Throwable $e) {

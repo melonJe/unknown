@@ -82,7 +82,7 @@ body {
   transform-style: preserve-3d;
   transform: rotateX(0deg) rotateY(0deg);
   transition: transform 0.1s ease;
-  pointer-events: none;
+  /* pointer-events: none; */
 }
 
 .face {

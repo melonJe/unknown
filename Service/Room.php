@@ -7,8 +7,8 @@ require_once LIB_PATH . '/redis.php';
 require_once LIB_PATH . '/postgres.php';
 
 use DAO\RoomDao;
-use DTO\RoomDto;
-
+use Service\Board;
+use Service\Turn;
 use Exception;
 
 class Room
@@ -31,7 +31,7 @@ class Room
         $keptRoomIds = [];
         $roomIds = [];
         $it = 0;
-        $fiveMinutesAgo = date('Y-m-d H:i:s', strtotime('-5 minutes'));
+        $fiveMinutesAgo = date('Y-m-d H:i:s', strtotime('-1 minutes'));
         do {
             $roomIds = [];
 
@@ -52,6 +52,7 @@ class Room
                     $redis->srem('rooms', $roomId);
                     $redis->del("room:{$roomId}");
                     $redis->del("room:{$roomId}:turn");
+                    $redis->del("room:{$roomId}:turn_order");
                     $redis->del("room:{$roomId}:users");
 
                     $subIt = 0;
@@ -72,7 +73,15 @@ class Room
 
     public static function getRooms(): array
     {
-        return self::cleanupRooms();
+        $redis = getRedis();
+        $roomIds = self::cleanupRooms();
+        $result = [];
+        foreach ($roomIds as $roomId) {
+            $roomKey = "room:{$roomId}";
+            $roomData = $redis->hgetall($roomKey);
+            $result[$roomId] = $roomData["started"];
+        }
+        return $result;
     }
 
     public static function createRoom($userId): string
@@ -152,16 +161,17 @@ class Room
 
         return [
             "tiles" => $tiles,
+            "started" => $roomData['started'],
             "width" => $roomData['width'],
             "height" => $roomData['height'],
         ];
     }
 
-    public static function joinGame($userId, $roomId): bool
+    public static function joinGame($userId, $roomId): array
     {
         if (!$roomId || !$userId) {
             http_response_code(400);
-            return false;
+            return ['error' => '400'];
         }
 
         $redis  = getRedis();
@@ -170,7 +180,11 @@ class Room
 
         if (empty($roomData)) {
             http_response_code(404);
-            return false;
+            return ['error' => '404'];
+        }
+
+        if (($roomData['started'] ?? '0') === '1') {
+            return ['error' => 'already_started'];
         }
 
         $tiles = json_decode($roomData['tiles'] ?? '', true);
@@ -185,7 +199,7 @@ class Room
 
         $currentPlayers = $redis->scard("room:{$roomId}:users");
         if ($currentPlayers >= $startCount) {
-            return false;
+            return ['error' => 'room_full'];
         }
 
         $redis->sadd("room:{$roomId}:users", $userId);
@@ -195,9 +209,16 @@ class Room
 
         if (!empty($userData)) {
             $redis->expire($userKey, 60 * 60 * 24);
-            return true;
+            return ['msg' => 'join'];
+        }
+        $startTiles = Board::getStartTiles($roomData['tiles']);
+
+        if (empty($startTiles)) {
+            http_response_code(500);
+            exit;
         }
 
+        $startTile = $startTiles[random_int(0, count($startTiles) - 1)];
         $diceArr = [
             'top'    => 'red',
             'bottom' => 'blue',
@@ -208,13 +229,13 @@ class Room
         ];
 
         $redis->hmset($userKey, [
-            'pos_x'     => -1,
-            'pos_y'     => -1,
+            'pos_x'     => $startTile['x'],
+            'pos_y'     => $startTile['y'],
             'dice'      => json_encode($diceArr),
             'joined_at' => date('Y-m-d H:i:s'),
         ]);
         $redis->expire($userKey, 60 * 60 * 24);
-        return true;
+        return ['msg' => 'join'];
     }
 
     public static function startGame(string $roomId): array
@@ -231,33 +252,31 @@ class Room
             return ['error' => 'already_started'];
         }
 
-        $tiles = json_decode($roomData['tiles'] ?? '', true);
-        $startTiles = [];
-        foreach ($tiles as $xKey => $row) {
-            foreach ($row as $yKey => $tile) {
-                if (($tile['type'] ?? '') === 'start') {
-                    $startTiles[] = ['x' => $xKey, 'y' => $yKey];
-                }
-            }
-        }
+        $startTiles = Board::getStartTiles($roomData['tiles']);
 
         $userIds = $redis->smembers("room:{$roomId}:users");
 
-        if (count($userIds) < 4 || count($userIds) > count($startTiles)) {
-            return ['error' => 'invalid_player_count'];
-        }
+        // if (count($userIds) < 4 || count($userIds) > count($startTiles)) {
+        //     return ['error' => 'invalid_player_count'];
+        // }
 
         $redis->hset($roomKey, 'started', '1');
         $redis->hset($roomKey, 'updated_at', date('Y-m-d H:i:s'));
         $turnOrder = $userIds;
         shuffle($turnOrder);
-        $turnKey = "room:{$roomId}:turn_order";
-        $redis->del($turnKey);
-        foreach ($turnOrder as $uid) {
-            $redis->rpush($turnKey, $uid);
-        }
-        if (!empty($turnOrder)) {
-            $redis->hset("room:{$roomId}:turn", 'current_turn_user_id', $turnOrder[0]);
+        $orderKey = "room:{$roomId}:turn_order";
+        $redis->del($orderKey);
+        $result = [];
+        foreach ($turnOrder as $userId) {
+            $entry = [
+                'user'   => $userId,
+                'action' => "setStartTile",
+            ];
+            $redis->rPush($orderKey, json_encode($entry));
+            $result[] = [
+                'user'   => $userId,
+                'action' => "setStartTile",
+            ];
         }
 
         if (!empty($startTiles)) {
@@ -271,7 +290,7 @@ class Room
             }
         }
 
-        return ['turn_order' => $turnOrder];
+        return ['turn_order' => $result];
     }
 
     public static function setStartTile(string $roomId, string $userId, int $x, int $y, array $dice): bool
