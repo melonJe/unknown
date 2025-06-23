@@ -91,7 +91,6 @@ if (!$room_id) {
                         case 'next_turn':
                             displayTurnOrder(msg.turn_order);
                             currentUser = msg.turn_order[0];
-
                             if (currentUser.user === myUserId && currentUser.action === 'setStartTile') {
                                 enableStartSelection();
                             }
@@ -236,11 +235,15 @@ if (!$room_id) {
 
         function displayTurnOrder(order) {
             const el = document.getElementById('turn-order');
-            if (!order || order.length === 0) {
+            const result = order.map(({
+                user,
+                action
+            }) => `${user}(${action})`);
+            if (!result || result.length === 0) {
                 el.textContent = '';
                 return;
             }
-            el.textContent = 'Turn: ' + order.join(' → ');
+            el.textContent = 'Turn: ' + result.join(' → ');
         }
 
         function rollDice(data, dir) {

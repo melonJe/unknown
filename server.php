@@ -90,6 +90,10 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                 break;
             case 'move':
                 $result = Dice::move($msg['user_id'], $msg['room_id'], $msg['direction']);
+                if ($result['error'] ?? false) {
+                    $conn->send(json_encode(['type' => 'error', 'message' => $result['error']]));
+                    break;
+                }
                 $turnService = new Turn();
                 $nextAction = ($result['exile'] ?? false) ? 'setStartTile' : 'move';
                 if (!($result['extra_turn'] ?? false)) {

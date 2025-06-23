@@ -7,6 +7,7 @@ use DAO\UserDao;
 use DAO\RoomDao;
 use DTO\UserDto;
 use DTO\DiceDto;
+use Service\Turn;
 
 class Dice
 {
@@ -60,7 +61,8 @@ class Dice
 
 
         //턴 체크 및 게임 시작 여부 확인
-        $turnUser = $redis->hget("room:{$roomId}:turn", "current_turn_user_id");
+        $turnService = new Turn();
+        $turnUser  = $turnService->getCurrentTurn($roomId)["user"];
         $started  = isset($roomData['started']) && $roomData['started'] !== '0';
         if ($started && $turnUser !== $userId) {
             http_response_code(403);
