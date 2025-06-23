@@ -71,7 +71,7 @@ class Rule
     }
 
     /**
-     * 5. 주변 9칸에 같은 색 윗면 말이 3개 이상일 때
+     * 5. 주변 9칸(자신 포함)에 같은 색 윗면 말이 3개 이상일 때
      *
      * @param RoomDto     $room
      * @param UserDto     $user
@@ -89,11 +89,12 @@ class Rule
         $center    = [$user->getPosX(), $user->getPosY()];
         $neighbors = $room->getNeighbors($center, 1);
         $frontColor  = $user->getDice()->getFrontColor();
-        $count     = 0;
+        $count     = 1; // 본인 포함
 
         foreach ($neighbors as [$x, $y]) {
             if (($grid[$x][$y]['color'] ?? null) === $frontColor) {
-                if (++$count >= 3) {
+                $count++;
+                if ($count >= 3) {
                     return true;
                 }
             }
