@@ -136,7 +136,8 @@ class Dice
         $userStates[$userId]['dice']  = $myNewDice;
 
         // 히든 룰 적용
-        $extra = self::applyHiddenRules($roomId, $userId, $userStates, $userDtos, $tiles);
+        $extra     = self::applyHiddenRules($roomId, $userId, $userStates, $userDtos, $tiles);
+        $userDtos  = $dao->findAllByRoomId($roomId);
 
         // Redis 저장
         foreach ($userStates as $uid => $state) {
@@ -215,15 +216,33 @@ class Dice
             );
         }
 
-        $events = [];
+        $events      = [];
+        $turnService = new Turn();
 
-        $user = $allUsers[$userId];
-        if ($rule->isExileCondition($roomDto, $user, $userDao)) {
-            $userStates[$userId]['pos_x'] = -1;
-            $userStates[$userId]['pos_y'] = -1;
-            $events[] = 'exile';
+        foreach ($allUsers as $uid => $dto) {
+            if ($dto->getPosX() === -1 || $dto->getPosY() === -1) {
+                continue;
+            }
+
+            if ($rule->isExileCondition($roomDto, $dto, $userDao)) {
+                $userStates[$uid]['pos_x'] = -1;
+                $userStates[$uid]['pos_y'] = -1;
+                $turnService->insertTurn($roomId, [
+                    'user'   => $uid,
+                    'action' => 'setStartTile',
+                ]);
+
+                if ($uid === $userId) {
+                    $events[] = 'exile';
+                }
+            }
+        }
+
+        if (in_array('exile', $events, true)) {
             return $events;
         }
+
+        $user = $allUsers[$userId];
 
         if ($rule->isNoSameColorInNine($roomDto, $user, $allUsers, $roomDao)) {
             $colors = ['red', 'blue', 'yellow', 'green', 'purple', 'white'];
@@ -235,18 +254,31 @@ class Dice
         }
 
         if ($rule->isThreeOrMoreInNine($roomDto, $user, $allUsers, $roomDao)) {
+            $neighbors = $roomDto->getNeighbors([$user->getPosX(), $user->getPosY()], 1);
+            $neighborMap = [];
+            foreach ($neighbors as [$nx, $ny]) {
+                $neighborMap["{$nx},{$ny}"] = true;
+            }
+
             foreach ($allUsers as $uid => $dto) {
                 if ($uid === $userId) {
                     continue;
                 }
-                if ($dto->getDice()->getFrontColor() === $user->getDice()->getFrontColor()) {
-                    $sx = $dto->getPosX();
-                    $sy = $dto->getPosY();
-                    if (DiceHelper::isValidTile($sx, $sy - 1, $tiles)) {
-                        $userStates[$uid]['pos_y'] = $sy - 1;
-                    }
-                    break;
+                if ($dto->getDice()->getFrontColor() !== $user->getDice()->getFrontColor()) {
+                    continue;
                 }
+
+                $posKey = $dto->getPosX() . ',' . $dto->getPosY();
+                if (!isset($neighborMap[$posKey])) {
+                    continue;
+                }
+
+                $sx = $dto->getPosX();
+                $sy = $dto->getPosY();
+                if (DiceHelper::isValidTile($sx, $sy - 1, $tiles)) {
+                    $userStates[$uid]['pos_y'] = $sy - 1;
+                }
+                break;
             }
         }
 
