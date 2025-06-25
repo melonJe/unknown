@@ -64,20 +64,21 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                 break;
             case 'join_room':
                 $joined = Room::joinGame($msg['user_id'], $msg['room_id']);
-                if (isset($joined['error'])) {
+                if (!$joined['success']) {
                     $conn->send(json_encode(['type' => 'error', 'action' => "goHome", 'message' => $joined['error']]));
                     break;
                 }
-                $conn->send(json_encode(['type' => 'board_data', 'board' => Room::getBoard($msg['room_id'])]));
+                $board = Room::getBoard($msg['room_id']);
+                $conn->send(json_encode(['type' => 'board_data', 'board' => $board]));
                 foreach ($ws_worker->connections as $c) {
                     if ($c->roomId === $msg['room_id']) {
                         $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
                     }
                 }
                 break;
-            case 'next_turn':
+            case 'start_game':
                 $result = Room::startGame($msg['room_id']);
-                if (isset($result['error'])) {
+                if (!$result['success']) {
                     $conn->send(json_encode(['type' => 'error', 'message' => $result['error']]));
                     break;
                 }
@@ -90,7 +91,7 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                 break;
             case 'move':
                 $result = Dice::move($msg['user_id'], $msg['room_id'], $msg['direction']);
-                if ($result['error'] ?? false) {
+                if (!$result['success']) {
                     $conn->send(json_encode(['type' => 'error', 'message' => $result['error']]));
                     break;
                 }
@@ -117,8 +118,8 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                 break;
             case 'set_start':
                 $ok = Room::setStartTile($msg['room_id'], $msg['user_id'], (int)$msg['x'], (int)$msg['y'], $msg['dice']);
-                if (!$ok) {
-                    $conn->send(json_encode(['type' => 'error', 'message' => 'invalid start']));
+                if (!$ok['success']) {
+                    $conn->send(json_encode(['type' => 'error', 'message' => $ok['error'] ?? 'invalid start']));
                     break;
                 }
                 $turnService = new Turn();

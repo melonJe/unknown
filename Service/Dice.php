@@ -8,6 +8,7 @@ use DAO\RoomDao;
 use DTO\UserDto;
 use DTO\DiceDto;
 use Service\Turn;
+use Service\Response;
 
 class Dice
 {
@@ -49,7 +50,7 @@ class Dice
     {
         if (!$roomId || !$direction || !$userId) {
             http_response_code(400);
-            return ["error" => "room_id, direction, user_id required"];
+            return Response::error('room_id, direction, user_id required');
         }
 
         $redis    = getRedis();
@@ -66,12 +67,12 @@ class Dice
         $started  = isset($roomData['started']) && $roomData['started'] !== '0';
         if ($started && $turnUser !== $userId) {
             http_response_code(403);
-            return ['error' => 'not your turn'];
+            return Response::error('not your turn');
         }
 
         if (!$roomData) {
             http_response_code(404);
-            return ["error" => "room not found"];
+            return Response::error('room not found');
         }
         $tiles = json_decode($roomData['tiles'], true);
 
@@ -106,7 +107,7 @@ class Dice
                 break;
             default:
                 http_response_code(400);
-                return ['error' => 'invalid direction'];
+                return Response::error('invalid direction');
         }
 
         $nx = $x + $dx;
@@ -114,7 +115,7 @@ class Dice
 
         if (!DiceHelper::isValidTile($nx, $ny, $tiles)) {
             http_response_code(400);
-            return ['error' => 'destination invalid'];
+            return Response::error('destination invalid');
         }
 
         // 위치 → 유저 매핑
@@ -126,7 +127,7 @@ class Dice
         // 미는게 가능한지
         if (!self::tryPush($userStates, $nx, $ny, $dx, $dy, $tiles, $posToUid, $direction)) {
             http_response_code(400);
-            return ['error' => 'cannot push into invalid tile'];
+            return Response::error('cannot push into invalid tile');
         }
 
         // 내 주사위 이동
@@ -165,13 +166,12 @@ class Dice
             $redis->expire("room:{$roomId}:user:{$uid}", 60 * 60 * 24);
         }
 
-        return [
-            'success'      => true,
+        return Response::success([
             'new_position' => ['x' => $nx, 'y' => $ny],
             'dice'         => $myNewDice,
             'extra_turn'   => in_array('extra_turn', $extra, true),
             'exile'        => in_array('exile', $extra, true),
-        ];
+        ]);
     }
 
     /**

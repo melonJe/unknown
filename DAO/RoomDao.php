@@ -86,8 +86,8 @@ class RoomDao
         // TileDto[] → 배열 → JSON
         $tilesForSave = array_map(
             fn(TileDto $tile) => [
-                'x'     => $tile->getx(),
-                'y'     => $tile->gety(),
+                'x'     => $tile->getX(),
+                'y'     => $tile->getY(),
                 'type'  => $tile->getType(),
                 'score' => $tile->getScore(),
                 'color' => $tile->getColor(),
@@ -140,8 +140,8 @@ class RoomDao
         // 1) TileDto[] → [x][y] 그리드
         $grid = [];
         foreach ($room->getTiles() as $tile) {
-            $x = $tile->getx();
-            $y = $tile->gety();
+            $x = $tile->getX();
+            $y = $tile->getY();
             $grid[$x][$y] = [
                 'type'  => $tile->getType(),
                 'score' => $tile->getScore(),

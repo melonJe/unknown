@@ -61,7 +61,7 @@ if (!$room_id) {
                     }));
                     document.getElementById('startBtn').onclick = () => {
                         ws.send(JSON.stringify({
-                            action: 'next_turn',
+                            action: 'start_game',
                             room_id: roomId,
                             user_id: myUserId
                         }));
