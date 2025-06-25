@@ -23,7 +23,7 @@ class Turn
      * @param string $roomId
      * @return array<int,array<string,mixed>>
      */
-    public function getTurnOrder(string $roomId): array
+    static function getTurnOrder(string $roomId): array
     {
         $redis = getRedis();
         $key   = "room:{$roomId}:turn_order";
