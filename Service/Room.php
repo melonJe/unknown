@@ -10,6 +10,7 @@ use DAO\RoomDao;
 use Service\Board;
 use Helpers\DiceHelper;
 use Exception;
+use Service\Response;
 
 class Room
 {
@@ -132,8 +133,7 @@ class Room
     {
         if (!$roomId) {
             http_response_code(400);
-            return ['error' => 'room_id and user_id are required'];
-            exit;
+            return Response::error('room_id and user_id are required');
         }
 
         $redis  = getRedis();
@@ -142,8 +142,7 @@ class Room
 
         if (empty($roomData)) {
             http_response_code(404);
-            return ['error' => 'room not found'];
-            exit;
+            return Response::error('room not found');
         }
 
         $tiles = [];
@@ -159,19 +158,19 @@ class Room
             }
         }
 
-        return [
-            "tiles" => $tiles,
+        return Response::success([
+            "tiles"   => $tiles,
             "started" => $roomData['started'],
-            "width" => $roomData['width'],
-            "height" => $roomData['height'],
-        ];
+            "width"   => $roomData['width'],
+            "height"  => $roomData['height'],
+        ]);
     }
 
     public static function joinGame($userId, $roomId): array
     {
         if (!$roomId || !$userId) {
             http_response_code(400);
-            return ['error' => '400'];
+            return Response::error('room_id and user_id required');
         }
 
         $redis  = getRedis();
@@ -180,11 +179,11 @@ class Room
 
         if (empty($roomData)) {
             http_response_code(404);
-            return ['error' => '404'];
+            return Response::error('room not found');
         }
 
         if (($roomData['started'] ?? '0') === '1') {
-            return ['error' => 'already_started'];
+            return Response::error('already_started');
         }
 
         $tiles = json_decode($roomData['tiles'] ?? '', true);
@@ -199,7 +198,7 @@ class Room
 
         $currentPlayers = $redis->scard("room:{$roomId}:users");
         if ($currentPlayers >= $startCount) {
-            return ['error' => 'room_full'];
+            return Response::error('room_full');
         }
 
         $redis->sadd("room:{$roomId}:users", $userId);
@@ -209,13 +208,13 @@ class Room
 
         if (!empty($userData)) {
             $redis->expire($userKey, 60 * 60 * 24);
-            return ['msg' => 'join'];
+            return Response::success(['message' => 'join']);
         }
         $startTiles = Board::getStartTiles($roomData['tiles']);
 
         if (empty($startTiles)) {
             http_response_code(500);
-            exit;
+            return Response::error('invalid_board');
         }
 
         $startTile = $startTiles[random_int(0, count($startTiles) - 1)];
@@ -235,7 +234,8 @@ class Room
             'joined_at' => date('Y-m-d H:i:s'),
         ]);
         $redis->expire($userKey, 60 * 60 * 24);
-        return ['msg' => 'join'];
+
+        return Response::success(['message' => 'join']);
     }
 
     public static function startGame(string $roomId): array
@@ -245,11 +245,11 @@ class Room
         $roomData = $redis->hgetall($roomKey);
 
         if (empty($roomData)) {
-            return [];
+            return Response::error('room not found');
         }
 
         if (($roomData['started'] ?? '0') === '1') {
-            return ['error' => 'already_started'];
+            return Response::error('already_started');
         }
 
         $startTiles = Board::getStartTiles($roomData['tiles']);
@@ -291,31 +291,31 @@ class Room
             }
         }
 
-        return ['turn_order' => $result];
+        return Response::success(['turn_order' => $result]);
     }
 
-    public static function setStartTile(string $roomId, string $userId, int $x, int $y, array $dice): bool
+    public static function setStartTile(string $roomId, string $userId, int $x, int $y, array $dice): array
     {
         $redis   = getRedis();
         $roomKey = "room:{$roomId}";
         $roomData = $redis->hgetall($roomKey);
         if (empty($roomData)) {
-            return false;
+            return Response::error('room not found');
         }
         $tiles = json_decode($roomData['tiles'] ?? '', true);
         if (!isset($tiles[$x][$y]) || ($tiles[$x][$y]['type'] ?? '') !== 'start') {
-            return false;
+            return Response::error('invalid start');
         }
         $userIds = $redis->smembers("room:{$roomId}:users");
         foreach ($userIds as $uid) {
             $u = $redis->hgetall("room:{$roomId}:user:{$uid}");
             if ($u && (int)($u['pos_x'] ?? -1) === $x && (int)($u['pos_y'] ?? -1) === $y) {
-                return false;
+                return Response::error('invalid start');
             }
         }
         $orientation = DiceHelper::orientationFromTopFront($dice['top'] ?? '', $dice['front'] ?? '');
         if (!$orientation) {
-            return false;
+            return Response::error('invalid dice');
         }
 
         $startScore = (int)($tiles[$x][$y]['score'] ?? 0);
@@ -328,6 +328,6 @@ class Room
             'start_score' => $startScore,
         ]);
         $redis->expire($userKey, 60 * 60 * 24);
-        return true;
+        return Response::success();
     }
 }

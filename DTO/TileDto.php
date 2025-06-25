@@ -19,11 +19,17 @@ class TileDto
         $this->color  = $color;
     }
 
-    public function getx(): int
+    /**
+     * Get tile X coordinate.
+     */
+    public function getX(): int
     {
         return $this->x;
     }
-    public function gety(): int
+    /**
+     * Get tile Y coordinate.
+     */
+    public function getY(): int
     {
         return $this->y;
     }
