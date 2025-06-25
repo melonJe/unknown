@@ -45,6 +45,53 @@ class Dice
         return true;
     }
 
+    /**
+     * Check every user's current position and front color for exile conditions.
+     * Users meeting the condition will receive an exile mark and a turn will be
+     * queued to let them select a new start tile.
+     *
+     * @param string                $roomId
+     * @param array<string,UserDto> $allUsers
+     * @param array<string,array>   $userStates
+     * @param Rule                  $rule
+     * @param RoomDto               $roomDto
+     * @param UserDao               $userDao
+     * @param Turn                  $turnService
+     * @param string                $currentUser
+     * @param array<int,string>     $events
+     * @return void
+     */
+    private static function applyExileMarks(
+        string $roomId,
+        array $allUsers,
+        array &$userStates,
+        Rule $rule,
+        RoomDto $roomDto,
+        UserDao $userDao,
+        Turn $turnService,
+        string $currentUser,
+        array &$events
+    ): void {
+        foreach ($allUsers as $uid => $dto) {
+            if ($dto->getPosX() === -1 || $dto->getPosY() === -1) {
+                continue;
+            }
+
+            if ($rule->isExileCondition($roomDto, $dto, $userDao)) {
+                $userStates[$uid]['pos_x'] = -1;
+                $userStates[$uid]['pos_y'] = -1;
+                $turnService->insertTurn($roomId, [
+                    'user'   => $uid,
+                    'action' => 'setStartTile',
+                ]);
+
+                if ($uid === $currentUser) {
+                    $events[] = 'exile';
+                }
+            }
+        }
+    }
+
     public static function move($userId, $roomId, $direction): array
     {
         if (!$roomId || !$direction || !$userId) {
@@ -219,24 +266,18 @@ class Dice
         $events      = [];
         $turnService = new Turn();
 
-        foreach ($allUsers as $uid => $dto) {
-            if ($dto->getPosX() === -1 || $dto->getPosY() === -1) {
-                continue;
-            }
-
-            if ($rule->isExileCondition($roomDto, $dto, $userDao)) {
-                $userStates[$uid]['pos_x'] = -1;
-                $userStates[$uid]['pos_y'] = -1;
-                $turnService->insertTurn($roomId, [
-                    'user'   => $uid,
-                    'action' => 'setStartTile',
-                ]);
-
-                if ($uid === $userId) {
-                    $events[] = 'exile';
-                }
-            }
-        }
+        // First, apply exile checks for every user on the board.
+        self::applyExileMarks(
+            $roomId,
+            $allUsers,
+            $userStates,
+            $rule,
+            $roomDto,
+            $userDao,
+            $turnService,
+            $userId,
+            $events
+        );
 
         if (in_array('exile', $events, true)) {
             return $events;
