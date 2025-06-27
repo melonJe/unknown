@@ -71,6 +71,7 @@ class Dice
             http_response_code(403);
             return Response::error('not your turn');
         }
+        $turnService->recordMove($roomId, $userId, $direction);
 
         if (!$roomData) {
             http_response_code(404);
@@ -138,9 +139,26 @@ class Dice
         $userStates[$userId]['pos_y'] = $ny;
         $userStates[$userId]['dice']  = $myNewDice;
 
-        // 히든 룰 적용
-        $extra     = self::applyHiddenRules($roomId, $userId, $userStates, $userDtos, $tiles);
-        $userDtos  = $dao->findAllByRoomId($roomId);
+        $goalReached = false;
+        foreach ($userStates as $state) {
+            $t = $tiles[$state['pos_x']][$state['pos_y']]['type'] ?? '';
+            if ($t === 'goal') {
+                $goalReached = true;
+                break;
+            }
+        }
+
+        if ($goalReached) {
+            $redis->hset($roomKey, 'finished', '1');
+            $redis->del("room:{$roomId}:turn_order");
+        }
+
+        // 히든 룰 적용 (골인 시 스킵)
+        $extra = [];
+        if (!$goalReached) {
+            $extra    = self::applyHiddenRules($roomId, $userId, $userStates, $userDtos, $tiles);
+            $userDtos = $dao->findAllByRoomId($roomId);
+        }
 
         // Redis 저장
         foreach ($userStates as $uid => $state) {
@@ -173,6 +191,7 @@ class Dice
             'dice'         => $myNewDice,
             'extra_turn'   => in_array('extra_turn', $extra, true),
             'exile'        => in_array('exile', $extra, true),
+            'game_end'     => $goalReached,
         ]);
     }
 
