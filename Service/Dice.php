@@ -251,23 +251,11 @@ class Dice
             ];
         }
 
-        // 6) ThreeOrMore 턴 (Yellow Special 여부에 따라 대상 결정)
+        // 6) ThreeOrMore 턴
         if ($threeOrMore) {
-            $yellowSpecial = $rule->isYellowSpecial($roomDto, $user, $allUsers, $roomDao);
-
-            $targets = array_filter(
-                array_keys($allUsers),
-                fn($uid) => $uid !== $userId
-                    && ($yellowSpecial
-                        || $allUsers[$uid]->getDice()->getFrontColor()
-                        !== $user->getDice()->getFrontColor()
-                    )
-            );
-
             $addTurn[] = [
                 'user'   => $userId,
-                'action' => 'move',
-                'target' => $yellowSpecial ? 'asdfasdf' : $targets,
+                'action' => 'targetMove'
             ];
         }
 
@@ -280,7 +268,7 @@ class Dice
         }
 
         // 8) 턴 일괄 삽입
-        $turnSvc->insertTurn($roomId, $addTurn);
+        $turnSvc->insertTurnArray($roomId, $addTurn);
 
         // 9) 결과 반환
         return $turnSvc->getCurrentTurn($roomId);

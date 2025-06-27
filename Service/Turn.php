@@ -109,16 +109,31 @@ class Turn
         $redis = getRedis();
         $key   = "room:{$roomId}:turn_order";
 
-        $redis->rPush($key, json_encode($turn));
+        $json     = json_encode($turn);
+        $existing = $redis->lRange($key, 0, -1);
+        $seen     = array_flip($existing);
+
+        if (!isset($seen[$json])) {
+            $redis->rPush($key, $json);
+        }
     }
 
-    public function insertTurnArray(string $roomId, array $turn): void
+    public function insertTurnArray(string $roomId, array $turns): void
     {
         $redis = getRedis();
         $key   = "room:{$roomId}:turn_order";
 
-        foreach (array_reverse($turn) as $singleTurn) {
-            $redis->rPush($key, json_encode($singleTurn));
+        // ① 기존에 저장된 모든 항목을 불러와서 집합 형태로
+        $existing = $redis->lRange($key, 0, -1);
+        $seen     = array_flip($existing);
+
+        // ② 뒤에서부터 순회하며, seen에 없으면 RPUSH 후 seen에 추가
+        foreach (array_reverse($turns) as $singleTurn) {
+            $json = json_encode($singleTurn);
+            if (!isset($seen[$json])) {
+                $redis->rPush($key, $json);
+                $seen[$json] = true;
+            }
         }
     }
 }
