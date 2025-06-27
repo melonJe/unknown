@@ -2,13 +2,15 @@
 
 namespace Service;
 
+use Service\Turn;
+use Service\Rule;
+use Service\Response;
 use Helpers\DiceHelper;
 use DAO\UserDao;
 use DAO\RoomDao;
 use DTO\UserDto;
 use DTO\DiceDto;
-use Service\Turn;
-use Service\Response;
+
 
 class Dice
 {
@@ -174,132 +176,113 @@ class Dice
         ]);
     }
 
-    /**
-     * Apply hidden rules after movement and modify user states accordingly.
-     *
-     * @param string                   $roomId
-     * @param string                   $userId
-     * @param array<string,array>      $userStates
-     * @param array<string,UserDto>    $userDtos
-     * @param array                    $tiles
-     * @return array<int,string>       List of triggered events
-     */
-    private static function applyHiddenRules(string $roomId, string $userId, array &$userStates, array $userDtos, array $tiles): array
+    private static function applyHiddenRules(string $roomId, string $userId, array  &$userStates, array  $userDtos, array  $tiles): array
     {
         $redis   = getRedis();
         $userDao = new UserDao($redis);
-        $roomDao = new \DAO\RoomDao($redis);
+        $roomDao = new RoomDao($redis);
+        $turnSvc = new Turn();
+        $rule    = new Rule();
+
+        // 1) 룸 조회
         $roomDto = $roomDao->findByRoomId((int)$roomId);
         if (!$roomDto) {
             return [];
         }
 
-        $rule = new \Rule();
-        $allUsers = [];
-        foreach ($userStates as $uid => $state) {
-            $orig = $userDtos[$uid];
-            $allUsers[$uid] = new UserDto(
+        // 2) DTO 일괄 생성
+        $allUsers = array_map(
+            fn($uid, $state) => new UserDto(
                 $roomId,
                 $uid,
                 $state['pos_x'],
                 $state['pos_y'],
-                $orig->getExileMarkCount(),
+                $userDtos[$uid]->getExileMarkCount(),
                 new DiceDto(
                     $state['dice']['top'],
                     $state['dice']['bottom'],
                     $state['dice']['left'],
                     $state['dice']['right'],
                     $state['dice']['front'],
-                    $state['dice']['back'],
+                    $state['dice']['back']
                 ),
-                $orig->getJoinedAt()
-            );
-        }
+                $userDtos[$uid]->getJoinedAt()
+            ),
+            array_keys($userStates),
+            array_values($userStates)
+        );
 
-        $events      = [];
-        $turnService = new Turn();
+        $addTurn = [];
 
+        // 3) 탈락 조건 검사 → 상태 변경 + Redis 업데이트 + 턴 추가
         foreach ($allUsers as $uid => $dto) {
-            if ($dto->getPosX() === -1 || $dto->getPosY() === -1) {
+            if ($dto->getPosX() < 0) {
                 continue;
             }
-
             if ($rule->isExileCondition($roomDto, $dto, $userDao)) {
                 $userStates[$uid]['pos_x'] = -1;
                 $userStates[$uid]['pos_y'] = -1;
-                $turnService->insertTurn($roomId, [
+
+                $addTurn[] = [
                     'user'   => $uid,
                     'action' => 'setStartTile',
-                ]);
+                ];
 
-                if ($uid === $userId) {
-                    $events[] = 'exile';
+                $newUser = $redis->hIncrBy("room:{$roomId}:user:{$uid}", 'exile_mark_count', 1);
+                if ($newUser['exile_mark_count'] >= 3) {
+                    //TODO 퇴장 기능 추가
                 }
+                $redis->expire("room:{$roomId}:user:{$uid}", 86400);
             }
-        }
-
-        if (in_array('exile', $events, true)) {
-            return $events;
         }
 
         $user = $allUsers[$userId];
 
-        if ($rule->isNoSameColorInNine($roomDto, $user, $allUsers, $roomDao)) {
-            $colors = ['red', 'blue', 'yellow', 'green', 'purple', 'white'];
-            $current = $userStates[$userId]['dice']['top'];
-            do {
-                $new = $colors[array_rand($colors)];
-            } while ($new === $current);
-            $userStates[$userId]['dice']['top'] = $new;
+        // 4) 기타 룰 검사 결과를 미리 저장
+        $noSameColor   = $rule->isNoSameColorInNine($roomDto, $user, $allUsers, $roomDao);
+        $threeOrMore   = $rule->isThreeOrMoreInNine($roomDto, $user, $allUsers, $roomDao);
+        $lineOfThree   = $rule->isLineOfThree($roomDto, $user, $allUsers, $roomDao);
+
+        // 5) NoSameColor 턴
+        if ($noSameColor) {
+            $addTurn[] = [
+                'user'   => $userId,
+                'action' => 'setDiceState',
+            ];
         }
 
-        if ($rule->isThreeOrMoreInNine($roomDto, $user, $allUsers, $roomDao)) {
-            $neighbors = $roomDto->getNeighbors([$user->getPosX(), $user->getPosY()], 1);
-            $neighborMap = [];
-            foreach ($neighbors as [$nx, $ny]) {
-                $neighborMap["{$nx},{$ny}"] = true;
-            }
+        // 6) ThreeOrMore 턴 (Yellow Special 여부에 따라 대상 결정)
+        if ($threeOrMore) {
+            $yellowSpecial = $rule->isYellowSpecial($roomDto, $user, $allUsers, $roomDao);
 
-            foreach ($allUsers as $uid => $dto) {
-                if ($uid === $userId) {
-                    continue;
-                }
-                if ($dto->getDice()->getFrontColor() !== $user->getDice()->getFrontColor()) {
-                    continue;
-                }
+            $targets = array_filter(
+                array_keys($allUsers),
+                fn($uid) => $uid !== $userId
+                    && ($yellowSpecial
+                        || $allUsers[$uid]->getDice()->getFrontColor()
+                        !== $user->getDice()->getFrontColor()
+                    )
+            );
 
-                $posKey = $dto->getPosX() . ',' . $dto->getPosY();
-                if (!isset($neighborMap[$posKey])) {
-                    continue;
-                }
-
-                $sx = $dto->getPosX();
-                $sy = $dto->getPosY();
-                if (DiceHelper::isValidTile($sx, $sy - 1, $tiles)) {
-                    $userStates[$uid]['pos_y'] = $sy - 1;
-                }
-                break;
-            }
+            $addTurn[] = [
+                'user'   => $userId,
+                'action' => 'move',
+                'target' => $yellowSpecial ? 'asdfasdf' : $targets,
+            ];
         }
 
-        if ($rule->isYellowSpecial($roomDto, $user, $allUsers, $roomDao)) {
-            foreach ($allUsers as $uid => $dto) {
-                if ($uid === $userId) {
-                    continue;
-                }
-                $sx = $dto->getPosX();
-                $sy = $dto->getPosY();
-                if (DiceHelper::isValidTile($sx, $sy - 1, $tiles)) {
-                    $userStates[$uid]['pos_y'] = $sy - 1;
-                }
-                break;
-            }
+        // 7) LineOfThree 턴
+        if ($lineOfThree) {
+            $addTurn[] = [
+                'user'   => $userId,
+                'action' => 'extra_turn',
+            ];
         }
 
-        if ($rule->isLineOfThree($roomDto, $user, $allUsers, $roomDao)) {
-            $events[] = 'extra_turn';
-        }
+        // 8) 턴 일괄 삽입
+        $turnSvc->insertTurn($roomId, $addTurn);
 
-        return $events;
+        // 9) 결과 반환
+        return $turnSvc->getCurrentTurn($roomId);
     }
 }

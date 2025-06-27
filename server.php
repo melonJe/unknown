@@ -95,21 +95,10 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                     $conn->send(json_encode(['type' => 'error', 'message' => $result['error']]));
                     break;
                 }
-                $turnService = new Turn();
-                $nextAction = ($result['exile'] ?? false) ? 'setStartTile' : 'move';
-                if (!($result['extra_turn'] ?? false)) {
-                    $newOrder = $turnService->advanceTurn($msg['room_id'], [
-                        'user'   => $msg['user_id'],
-                        'action' => $nextAction,
-                    ]);
-                } else {
-                    $newOrder = $turnService->getTurnOrder($msg['room_id']);
-                }
-
                 foreach ($ws_worker->connections as $c) {
                     if ($c->roomId === $msg['room_id']) {
                         $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
-                        $c->send(json_encode(['type' => 'next_turn', 'turn_order' => $newOrder]));
+                        $c->send(json_encode(['type' => 'next_turn', 'turn_order' => $result]));
                         if ($result['exile'] ?? false) {
                             $c->send(json_encode(['type' => 'exiled', 'user' => $msg['user_id']]));
                         }

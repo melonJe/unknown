@@ -104,18 +104,21 @@ class Turn
         return $result;
     }
 
-    /**
-     * Append a new turn entry at the end of the turn order list.
-     *
-     * @param string                    $roomId
-     * @param array<string,string|null> $turn
-     * @return void
-     */
     public function insertTurn(string $roomId, array $turn): void
     {
         $redis = getRedis();
         $key   = "room:{$roomId}:turn_order";
 
         $redis->rPush($key, json_encode($turn));
+    }
+
+    public function insertTurnArray(string $roomId, array $turn): void
+    {
+        $redis = getRedis();
+        $key   = "room:{$roomId}:turn_order";
+
+        foreach (array_reverse($turn) as $singleTurn) {
+            $redis->rPush($key, json_encode($singleTurn));
+        }
     }
 }

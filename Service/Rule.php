@@ -1,8 +1,11 @@
 <?php
 
+namespace Service;
+
 require_once __DIR__ . '/../lib/constants.php';
 require_once LIB_PATH . '/redis.php';
 require_once LIB_PATH . '/postgres.php';
+
 
 use DAO\UserDao;
 use DTO\RoomDto;
