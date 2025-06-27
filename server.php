@@ -102,6 +102,9 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                         if ($result['exile'] ?? false) {
                             $c->send(json_encode(['type' => 'exiled', 'user' => $msg['user_id']]));
                         }
+                        if ($result['game_end'] ?? false) {
+                            $c->send(json_encode(['type' => 'game_end']));
+                        }
                     }
                 }
                 break;
