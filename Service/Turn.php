@@ -8,42 +8,6 @@ require_once LIB_PATH . '/postgres.php';
 
 class Turn
 {
-    /**
-     * Save a move turn entry for logging.
-     */
-    private function logMoveTurn(string $roomId, array $turn, ?string $direction = null): void
-    {
-        $pdo = getPdo();
-        $stmt = $pdo->prepare('INSERT INTO move_turns (room_id, user_id, action, direction) VALUES (:r, :u, :a, :d)');
-        $stmt->execute([
-            'r' => $roomId,
-            'u' => $turn['user'] ?? '',
-            'a' => $turn['action'] ?? '',
-            'd' => $direction,
-        ]);
-    }
-
-    /**
-     * Save a hidden rule turn entry for logging.
-     */
-    private function logHiddenTurn(string $roomId, array $turn): void
-    {
-        $pdo = getPdo();
-        $stmt = $pdo->prepare('INSERT INTO hidden_turns (room_id, user_id, action) VALUES (:r, :u, :a)');
-        $stmt->execute([
-            'r' => $roomId,
-            'u' => $turn['user'] ?? '',
-            'a' => $turn['action'] ?? '',
-        ]);
-    }
-
-    /**
-     * Public helper to log a player move action.
-     */
-    public function recordMove(string $roomId, string $userId, string $direction): void
-    {
-        $this->logMoveTurn($roomId, ['user' => $userId, 'action' => 'move'], $direction);
-    }
     public function getCurrentTurn(string $roomId): array
     {
         $redis = getRedis();
@@ -84,7 +48,6 @@ class Turn
 
         $redis->lPop($key);
         $redis->rPush($key, json_encode($nextTurn));
-        $this->logMoveTurn($roomId, $nextTurn);
 
         return $this->getTurnOrder($roomId);
     }
@@ -160,16 +123,13 @@ class Turn
         $redis = getRedis();
         $key   = "room:{$roomId}:turn_order";
 
-        // ① 기존에 저장된 모든 항목을 불러와서 집합 형태로
         $existing = $redis->lRange($key, 0, -1);
         $seen     = array_flip($existing);
 
-        // ② 뒤에서부터 순회하며, seen에 없으면 LPUSH 후 seen에 추가
         foreach (array_reverse($turns) as $singleTurn) {
             $json = json_encode($singleTurn);
             if (!isset($seen[$json])) {
-                $redis->lPush($key, $json);
-                $this->logHiddenTurn($roomId, $singleTurn);
+                $redis->rPush($key, $json);
                 $seen[$json] = true;
             }
         }

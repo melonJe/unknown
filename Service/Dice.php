@@ -71,7 +71,6 @@ class Dice
             http_response_code(403);
             return Response::error('not your turn');
         }
-        $turnService->recordMove($roomId, $userId, $direction);
 
         if (!$roomData) {
             http_response_code(404);
@@ -151,14 +150,11 @@ class Dice
         if ($goalReached) {
             $redis->hset($roomKey, 'finished', '1');
             $redis->del("room:{$roomId}:turn_order");
+            return Response::success(['game_end'     => $goalReached]);
         }
 
-        // 히든 룰 적용 (골인 시 스킵)
-        $extra = [];
-        if (!$goalReached) {
-            $extra    = self::applyHiddenRules($roomId, $userId, $userStates, $userDtos, $tiles);
-            $userDtos = $dao->findAllByRoomId($roomId);
-        }
+        $extra    = self::applyHiddenRules($roomId, $userId, $userStates, $userDtos, $tiles);
+        $userDtos = $dao->findAllByRoomId($roomId);
 
         // Redis 저장
         foreach ($userStates as $uid => $state) {
