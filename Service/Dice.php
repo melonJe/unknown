@@ -154,7 +154,7 @@ class Dice
             return Response::success(['game_end'     => $goalReached]);
         }
 
-        self::applyHiddenRules($roomId, $userId, $userStates, $userDtos, $tiles);
+        self::applyHiddenRules($roomId, $userId, $userStates, $userDtos);
         $userDtos = $dao->findAllByRoomId($roomId);
 
         // Redis 저장
@@ -232,14 +232,17 @@ class Dice
                 continue;
             }
             if ($rule->isExileCondition($roomDto, $dto, $userDao)) {
+                echo "[Debug] user {$uid} is exiled\n";
                 $userStates[$uid]['pos_x'] = -1;
                 $userStates[$uid]['pos_y'] = -1;
                 $turnSvc->advanceHiddenTurn($roomId, [
                     'user'   => $uid,
                     'action' => 'setStartTile',
                 ]);
+                echo "[Debug] hidden turn added for {$uid}\n";
 
                 $exileCount = $redis->hIncrBy("room:{$roomId}:user:{$uid}", 'exile_mark_count', 1);
+                echo "[Debug] exile_mark_count={$exileCount}\n";
                 if ($exileCount >= 3) {
                     User::deleteUserData($uid,  $roomId);
                 } else {

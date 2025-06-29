@@ -26,16 +26,19 @@ class Rule
     {
         $frontColor = $user->getDice()->getFrontColor();
 
-        $cell      = $room->getTiles()[$user->getPosX()][$user->getPosY()] ?? [];
-        $cellColor = $cell['color'] ?? null;
-
-        if ($frontColor === 'white' || $cellColor === 'white') {
-            $user->setExileMarkCount($user->getExileMarkCount() + 1);
-            $userDao->save($user);
-            return true;
+        $tileColor = null;
+        foreach ($room->getTiles() as $tile) {
+            if ($tile->getX() === $user->getPosX() && $tile->getY() === $user->getPosY()) {
+                $tileColor = $tile->getColor();
+                break;
+            }
         }
 
-        return false;
+        $isExile = $frontColor === 'white' || $tileColor === 'white';
+
+        echo "[Debug] isExileCondition user={$user->getUserId()} front={$frontColor} tile=" . ($tileColor ?? 'null') . " result=" . ($isExile ? 'true' : 'false') . "\n";
+
+        return $isExile;
     }
 
     /**
