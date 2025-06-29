@@ -85,7 +85,7 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                 foreach ($ws_worker->connections as $c) {
                     if ($c->roomId === $msg['room_id']) {
                         $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
-                        $c->send(json_encode(['type' => 'next_turn', 'turn_order' => $result['turn_order']]));
+                        $c->send(json_encode(['type' => 'next_turn', 'turn_order' => Turn::getTurnOrder($msg['room_id'])]));
                     }
                 }
                 break;
@@ -98,13 +98,13 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                 foreach ($ws_worker->connections as $c) {
                     if ($c->roomId === $msg['room_id']) {
                         $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
-                        $c->send(json_encode(['type' => 'next_turn', 'turn_order' => $result]));
-                        if ($result['exile'] ?? false) {
-                            $c->send(json_encode(['type' => 'exiled', 'user' => $msg['user_id']]));
-                        }
-                        if ($result['game_end'] ?? false) {
-                            $c->send(json_encode(['type' => 'game_end']));
-                        }
+                        $c->send(json_encode(['type' => 'next_turn', 'turn_order' => Turn::getTurnOrder($msg['room_id'])]));
+                        // if ($result['exile'] ?? false) {
+                        //     $c->send(json_encode(['type' => 'exiled', 'user' => $msg['user_id']]));
+                        // }
+                        // if ($result['game_end'] ?? false) {
+                        //     $c->send(json_encode(['type' => 'game_end']));
+                        // }
                     }
                 }
                 break;
@@ -115,14 +115,10 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                     break;
                 }
                 $turnService = new Turn();
-                $newOrder = $turnService->advanceTurn($msg['room_id'], [
+                $newOrder = $turnService->advanceMoveTurn($msg['room_id'], [
                     'user'   => $msg['user_id'],
                     'action' => 'move',
                 ]);
-                if ($turnService->isSetupComplete($msg['room_id'])) {
-                    $newOrder = $turnService->reorderByStartScore($msg['room_id']);
-                }
-
                 foreach ($ws_worker->connections as $c) {
                     if ($c->roomId === $msg['room_id']) {
                         $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
@@ -130,7 +126,12 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                     }
                 }
                 break;
-
+            case 'set_dice_state':
+                break;
+            case 'target_move':
+                break;
+            case 'extra_turn':
+                break;
             default:
                 break;
         }

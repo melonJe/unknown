@@ -52,8 +52,8 @@ class Room
                 if ($userCount === 0 && $roomData["updated_at"] < $fiveMinutesAgo) {
                     $redis->srem('rooms', $roomId);
                     $redis->del("room:{$roomId}");
-                    $redis->del("room:{$roomId}:turn");
-                    $redis->del("room:{$roomId}:turn_order");
+                    $redis->del("room:{$roomId}:turn_order_hidden");
+                    $redis->del("room:{$roomId}:turn_order_move");
                     $redis->del("room:{$roomId}:users");
 
                     $subIt = 0;
@@ -264,7 +264,7 @@ class Room
         $redis->hset($roomKey, 'updated_at', date('Y-m-d H:i:s'));
         $turnOrder = $userIds;
         shuffle($turnOrder);
-        $orderKey = "room:{$roomId}:turn_order";
+        $orderKey = "room:{$roomId}:turn_order_move";
         $redis->del($orderKey);
         $result = [];
         foreach ($turnOrder as $userId) {

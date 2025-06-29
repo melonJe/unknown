@@ -89,10 +89,20 @@ if (!$room_id) {
                             break;
 
                         case 'next_turn':
+                            console.log(msg.turn_order)
                             displayTurnOrder(msg.turn_order);
                             currentUser = msg.turn_order[0];
                             if (currentUser.user === myUserId && currentUser.action === 'setStartTile') {
                                 enableStartSelection();
+                            }
+                            if (currentUser.user === myUserId && currentUser.action === 'setDiceState') {
+
+                            }
+                            if (currentUser.user === myUserId && currentUser.action === 'targetMove') {
+
+                            }
+                            if (currentUser.user === myUserId && currentUser.action === 'extraTurn') {
+
                             }
                             break;
 

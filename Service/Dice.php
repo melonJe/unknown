@@ -149,11 +149,12 @@ class Dice
 
         if ($goalReached) {
             $redis->hset($roomKey, 'finished', '1');
-            $redis->del("room:{$roomId}:turn_order");
+            $redis->del("room:{$roomId}:turn_order_move");
+            $redis->del("room:{$roomId}:turn_order_move");
             return Response::success(['game_end'     => $goalReached]);
         }
 
-        $extra    = self::applyHiddenRules($roomId, $userId, $userStates, $userDtos, $tiles);
+        self::applyHiddenRules($roomId, $userId, $userStates, $userDtos, $tiles);
         $userDtos = $dao->findAllByRoomId($roomId);
 
         // Redis 저장
@@ -185,13 +186,11 @@ class Dice
         return Response::success([
             'new_position' => ['x' => $nx, 'y' => $ny],
             'dice'         => $myNewDice,
-            'extra_turn'   => in_array('extra_turn', $extra, true),
-            'exile'        => in_array('exile', $extra, true),
-            'game_end'     => $goalReached,
+            'turn_order'   => $turnService->getTurnOrder($roomId)
         ]);
     }
 
-    private static function applyHiddenRules(string $roomId, string $userId, array  &$userStates, array  $userDtos, array  $tiles): array
+    private static function applyHiddenRules(string $roomId, string $userId, array  &$userStates, array  $userDtos): bool
     {
         $redis   = getRedis();
         $userDao = new UserDao($redis);
@@ -202,7 +201,7 @@ class Dice
         // 1) 룸 조회
         $roomDto = $roomDao->findByRoomId((int)$roomId);
         if (!$roomDto) {
-            return [];
+            return false;
         }
 
         // 2) DTO 일괄 생성
@@ -227,8 +226,6 @@ class Dice
             array_values($userStates)
         );
 
-        $addTurn = [];
-
         // 3) 탈락 조건 검사 → 상태 변경 + Redis 업데이트 + 턴 추가
         foreach ($allUsers as $uid => $dto) {
             if ($dto->getPosX() < 0) {
@@ -237,17 +234,17 @@ class Dice
             if ($rule->isExileCondition($roomDto, $dto, $userDao)) {
                 $userStates[$uid]['pos_x'] = -1;
                 $userStates[$uid]['pos_y'] = -1;
-
-                $addTurn[] = [
+                $turnSvc->advanceHiddenTurn($roomId, [
                     'user'   => $uid,
                     'action' => 'setStartTile',
-                ];
+                ]);
 
-                $newUser = $redis->hIncrBy("room:{$roomId}:user:{$uid}", 'exile_mark_count', 1);
-                if ($newUser['exile_mark_count'] >= 3) {
-                    //TODO 퇴장 기능 추가
+                $exileCount = $redis->hIncrBy("room:{$roomId}:user:{$uid}", 'exile_mark_count', 1);
+                if ($exileCount >= 3) {
+                    User::deleteUserData($uid,  $roomId);
+                } else {
+                    $redis->expire("room:{$roomId}:user:{$uid}", 86400);
                 }
-                $redis->expire("room:{$roomId}:user:{$uid}", 86400);
             }
         }
 
@@ -260,32 +257,29 @@ class Dice
 
         // 5) NoSameColor 턴
         if ($noSameColor) {
-            $addTurn[] = [
+            $turnSvc->advanceHiddenTurn($roomId,  [
                 'user'   => $userId,
                 'action' => 'setDiceState',
-            ];
+            ]);
         }
 
         // 6) ThreeOrMore 턴
         if ($threeOrMore) {
-            $addTurn[] = [
+            $turnSvc->advanceHiddenTurn($roomId,  [
                 'user'   => $userId,
                 'action' => 'targetMove'
-            ];
+            ]);
         }
 
         // 7) LineOfThree 턴
         if ($lineOfThree) {
-            $addTurn[] = [
+            $turnSvc->advanceHiddenTurn($roomId,  [
                 'user'   => $userId,
-                'action' => 'extra_turn',
-            ];
+                'action' => 'extraTurn',
+            ]);
         }
 
         // 8) 턴 일괄 삽입
-        $turnSvc->insertTurnArray($roomId, $addTurn);
-
-        // 9) 결과 반환
-        return $turnSvc->getCurrentTurn($roomId);
+        return true;
     }
 }

@@ -8,30 +8,58 @@ require_once LIB_PATH . '/postgres.php';
 
 class Turn
 {
-    public function getCurrentTurn(string $roomId): array
+    public static function getHiddenOrder(string $roomId): array
     {
         $redis = getRedis();
-        $key   = "room:{$roomId}:turn_order";
-        $item  = $redis->lIndex($key, 0);
+        $key   = "room:{$roomId}:turn_order_hidden";
+        $items = $redis->lRange($key, 0, -1) ?: [];
 
-        return $item ? json_decode($item, true) : [];
+        return array_map(
+            static fn(string $json): array => [
+                'user'   => ($t = json_decode($json, true))['user'],
+                'action' => $t['action'],
+            ],
+            $items
+        );
     }
 
     /**
-     * Get full turn order list.
-     *
-     * @param string $roomId
-     * @return array<int,array<string,mixed>>
+     * move 리스트 전체를 ['user'=>…, 'action'=>…] 형태로 반환
      */
-    static function getTurnOrder(string $roomId): array
+    public static function getMoveOrder(string $roomId): array
     {
         $redis = getRedis();
-        $key   = "room:{$roomId}:turn_order";
-        $items = $redis->lRange($key, 0, -1);
+        $key   = "room:{$roomId}:turn_order_move";
+        $items = $redis->lRange($key, 0, -1) ?: [];
 
-        return array_map(static function ($v) {
-            return json_decode($v, true);
-        }, $items ?: []);
+        return array_map(
+            static fn(string $json): array => [
+                'user'   => ($t = json_decode($json, true))['user'],
+                'action' => $t['action'],
+            ],
+            $items
+        );
+    }
+
+    public function getCurrentTurn(string $roomId): array
+    {
+        // 1) hidden 우선
+        $hidden = self::getHiddenOrder($roomId);
+        if (!empty($hidden)) {
+            return $hidden[0];
+        }
+        // 2) 없으면 move
+        $move = self::getMoveOrder($roomId);
+        return $move[0] ?? [];
+    }
+
+    public static function getTurnOrder(string $roomId): array
+    {
+        // hidden + move 순으로 합쳐서 반환
+        return array_merge(
+            self::getHiddenOrder($roomId),
+            self::getMoveOrder($roomId)
+        );
     }
 
     /**
@@ -41,97 +69,41 @@ class Turn
      * @param array<string,string|null>  $nextTurn
      * @return array<int,array<string,mixed>>
      */
-    public function advanceTurn(string $roomId, array $nextTurn): array
+    public function advanceHiddenTurn(string $roomId, array $nextTurn): array
     {
         $redis = getRedis();
-        $key   = "room:{$roomId}:turn_order";
+        $key   = "room:{$roomId}:turn_order_hidden";
 
-        $redis->lPop($key);
+        // ① 기존 엔트리 로드
+        $items = $redis->lRange($key, 0, -1) ?: [];
+
+        // ② 같은 user, action이 이미 있는지 검사
+        foreach ($items as $json) {
+            $turn = json_decode($json, true);
+            if (
+                isset($turn['user'], $turn['action'])
+                && $turn['user'] === $nextTurn['user']
+                && $turn['action'] === $nextTurn['action']
+            ) {
+                // 중복이 있으면 추가하지 않고 현 상태 반환
+                return $this->getTurnOrder($roomId);
+            }
+        }
+
+        // ③ 중복 없으면 새 턴 추가
         $redis->rPush($key, json_encode($nextTurn));
 
         return $this->getTurnOrder($roomId);
     }
 
-    /**
-     * Check whether all users have finished their start tile setup.
-     */
-    public function isSetupComplete(string $roomId): bool
+    public function advanceMoveTurn(string $roomId, array $nextTurn): array
     {
         $redis = getRedis();
-        $key   = "room:{$roomId}:turn_order";
-        $len   = $redis->lLen($key);
+        $key   = "room:{$roomId}:turn_order_move";
 
-        for ($i = 0; $i < $len; $i++) {
-            $item = json_decode($redis->lIndex($key, $i), true);
-            if (($item['action'] ?? '') === 'setStartTile') {
-                return false;
-            }
-        }
+        $redis->lPop($key);
+        $redis->rPush($key, json_encode($nextTurn));
 
-        return true;
-    }
-
-    /**
-     * Reorder turn list by the start tile score of each user.
-     * Returns the newly ordered list.
-     *
-     * @param string $roomId
-     * @return array<int,array<string,mixed>>
-     */
-    public function reorderByStartScore(string $roomId): array
-    {
-        $redis   = getRedis();
-        $users   = $redis->smembers("room:{$roomId}:users");
-        $scores  = [];
-
-        foreach ($users as $uid) {
-            $data           = $redis->hgetall("room:{$roomId}:user:{$uid}");
-            $scores[$uid]   = isset($data['start_score']) ? (int)$data['start_score'] : PHP_INT_MAX;
-        }
-
-        asort($scores);
-
-        $orderKey = "room:{$roomId}:turn_order";
-        $redis->del($orderKey);
-        $result = [];
-
-        foreach (array_keys($scores) as $uid) {
-            $entry = ['user' => $uid, 'action' => 'move'];
-            $redis->rPush($orderKey, json_encode($entry));
-            $result[] = $entry;
-        }
-
-        return $result;
-    }
-
-    public function insertTurn(string $roomId, array $turn): void
-    {
-        $redis = getRedis();
-        $key   = "room:{$roomId}:turn_order";
-
-        $json     = json_encode($turn);
-        $existing = $redis->lRange($key, 0, -1);
-        $seen     = array_flip($existing);
-
-        if (!isset($seen[$json])) {
-            $redis->rPush($key, $json);
-        }
-    }
-
-    public function insertTurnArray(string $roomId, array $turns): void
-    {
-        $redis = getRedis();
-        $key   = "room:{$roomId}:turn_order";
-
-        $existing = $redis->lRange($key, 0, -1);
-        $seen     = array_flip($existing);
-
-        foreach (array_reverse($turns) as $singleTurn) {
-            $json = json_encode($singleTurn);
-            if (!isset($seen[$json])) {
-                $redis->rPush($key, $json);
-                $seen[$json] = true;
-            }
-        }
+        return $this->getTurnOrder($roomId);
     }
 }
