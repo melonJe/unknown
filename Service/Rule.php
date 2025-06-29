@@ -30,8 +30,6 @@ class Rule
         $cellColor = $cell['color'] ?? null;
 
         if ($frontColor === 'white' || $cellColor === 'white') {
-            $user->setExileMarkCount($user->getExileMarkCount() + 1);
-            $userDao->save($user);
             return true;
         }
 

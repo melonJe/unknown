@@ -154,7 +154,7 @@ class Dice
             return Response::success(['game_end'     => $goalReached]);
         }
 
-        self::applyHiddenRules($roomId, $userId, $userStates, $userDtos, $tiles);
+        self::applyHiddenRules($roomId, $userId, $userStates, $userDtos);
         $userDtos = $dao->findAllByRoomId($roomId);
 
         // Redis 저장
