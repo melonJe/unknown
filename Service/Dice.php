@@ -67,8 +67,8 @@ class Dice
         $turnService = new Turn();
         $started  = isset($roomData['started']) && $roomData['started'] !== '0';
         if ($started) {
-            $turnUser  = $turnService->getCurrentTurn($roomId)["user"];
-            if ($turnUser !== $userId) {
+            $turnUser  = $turnService->getCurrentTurn($roomId);
+            if ($turnUser['user'] !== $userId || $turnUser['action'] !== 'move') {
                 http_response_code(403);
                 return Response::error('not your turn');
             }
