@@ -18,11 +18,7 @@ class RoomDao
         $this->redis = $redis;
     }
 
-    /**
-     * @param int $roomId
-     * @return RoomDto|null
-     */
-    public function findByRoomId(int $roomId): ?RoomDto
+    public function findByRoomId(string $roomId): ?RoomDto
     {
         $key  = "room:{$roomId}";
         $data = $this->redis->hgetall($key);
@@ -130,7 +126,7 @@ class RoomDao
         return $positions;
     }
 
-    public function getTilesWithDiceColor(int $roomId, array $users): array
+    public function getTilesWithDiceColor(string $roomId, array $users): array
     {
         $room = $this->findByRoomId($roomId);
         if (!$room) {
@@ -153,7 +149,7 @@ class RoomDao
         foreach ($users as $user) {
             $x     = $user->getPosX();
             $y     = $user->getPosY();
-            $front = $user->getDice()->getFront();
+            $front = $user->getDice()->getFrontColor();
             if (isset($grid[$x][$y])) {
                 $grid[$x][$y]['color'] = $front;
             }

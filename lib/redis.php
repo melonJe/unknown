@@ -13,7 +13,7 @@ function getRedis()
             'scheme' => 'tcp',
             'host' => $_ENV['REDIS_HOST'],
             'port' => $_ENV['REDIS_PORT'],
-            'username' => $_ENV['REDIS_USERNAME'],
+            // 'username' => $_ENV['REDIS_USERNAME'],
             'password' => $_ENV['REDIS_PASSWORD'],
         ]);
     }

@@ -18,7 +18,7 @@ class Room
     {
         $redis  = getRedis();
         $dao    = new RoomDao($redis);
-        $room   = $dao->findByRoomId((int)$roomId);
+        $room   = $dao->findByRoomId($roomId);
         if ($room) {
             return $room->toArray();
         }

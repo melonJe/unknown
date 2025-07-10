@@ -7,7 +7,7 @@ use InvalidArgumentException;
 
 class RoomDto
 {
-    private int $roomId;
+    private string $roomId;
     private bool $started;
     private int $width;
     private int $height;
@@ -24,7 +24,7 @@ class RoomDto
      * @param DateTimeInterface   $updated_at
      */
     public function __construct(
-        int $roomId,
+        string $roomId,
         bool $started,
         int $width,
         int $height,
@@ -42,7 +42,7 @@ class RoomDto
         $this->updated_at     = $updated_at;
     }
 
-    public function getRoomId(): int
+    public function getRoomId(): string
     {
         return $this->roomId;
     }
@@ -98,7 +98,6 @@ class RoomDto
                 if ($nx < 0 || $ny < 0 || $nx >= $this->width || $ny >= $this->height) {
                     continue;
                 }
-
                 $neighbors[] = [$nx, $ny];
             }
         }
@@ -134,5 +133,4 @@ class RoomDto
             'updated_at' => $this->updated_at->format(DateTimeInterface::ATOM),
         ];
     }
-
 }

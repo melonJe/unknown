@@ -65,11 +65,13 @@ class Dice
 
         //턴 체크 및 게임 시작 여부 확인
         $turnService = new Turn();
-        $turnUser  = $turnService->getCurrentTurn($roomId)["user"];
         $started  = isset($roomData['started']) && $roomData['started'] !== '0';
-        if ($started && $turnUser !== $userId) {
-            http_response_code(403);
-            return Response::error('not your turn');
+        if ($started) {
+            $turnUser  = $turnService->getCurrentTurn($roomId)["user"];
+            if ($turnUser !== $userId) {
+                http_response_code(403);
+                return Response::error('not your turn');
+            }
         }
 
         if (!$roomData) {
@@ -154,7 +156,8 @@ class Dice
             return Response::success(['game_end'     => $goalReached]);
         }
 
-        self::applyHiddenRules($roomId, $userId, $userStates, $userDtos);
+        self::applyHiddenRules($roomId, $userId);
+        echo "applying hidden rules done\n";
         $userDtos = $dao->findAllByRoomId($roomId);
 
         // Redis 저장
@@ -190,8 +193,9 @@ class Dice
         ]);
     }
 
-    private static function applyHiddenRules(string $roomId, string $userId, array  &$userStates, array  $userDtos): bool
+    private static function applyHiddenRules(string $roomId, string $userId): bool
     {
+        echo "applying hidden rules\n";
         $redis   = getRedis();
         $userDao = new UserDao($redis);
         $roomDao = new RoomDao($redis);
@@ -199,32 +203,14 @@ class Dice
         $rule    = new Rule();
 
         // 1) 룸 조회
-        $roomDto = $roomDao->findByRoomId((int)$roomId);
+        $roomDto = $roomDao->findByRoomId($roomId);
         if (!$roomDto) {
+            echo "room not found\n";
             return false;
         }
 
         // 2) DTO 일괄 생성
-        $allUsers = array_map(
-            fn($uid, $state) => new UserDto(
-                $roomId,
-                $uid,
-                $state['pos_x'],
-                $state['pos_y'],
-                $userDtos[$uid]->getExileMarkCount(),
-                new DiceDto(
-                    $state['dice']['top'],
-                    $state['dice']['bottom'],
-                    $state['dice']['left'],
-                    $state['dice']['right'],
-                    $state['dice']['front'],
-                    $state['dice']['back']
-                ),
-                $userDtos[$uid]->getJoinedAt()
-            ),
-            array_keys($userStates),
-            array_values($userStates)
-        );
+        $allUsers = $userDao->findAllByRoomId($roomId);
 
         // 3) 탈락 조건 검사 → 상태 변경 + Redis 업데이트 + 턴 추가
         foreach ($allUsers as $uid => $dto) {
@@ -233,8 +219,8 @@ class Dice
             }
             if ($rule->isExileCondition($roomDto, $dto, $userDao)) {
                 echo "[Debug] user {$uid} is exiled\n";
-                $userStates[$uid]['pos_x'] = -1;
-                $userStates[$uid]['pos_y'] = -1;
+                $redis->hset("room:{$roomId}:user:{$uid}", 'pos_x', -1);
+                $redis->hset("room:{$roomId}:user:{$uid}", 'pos_y', -1);
                 $turnSvc->advanceHiddenTurn($roomId, [
                     'user'   => $uid,
                     'action' => 'setStartTile',
@@ -260,6 +246,7 @@ class Dice
 
         // 5) NoSameColor 턴
         if ($noSameColor) {
+            echo "[DEBUG] NoSameColor condition met. Adding hidden turn.";
             $turnSvc->advanceHiddenTurn($roomId,  [
                 'user'   => $userId,
                 'action' => 'setDiceState',
@@ -268,6 +255,7 @@ class Dice
 
         // 6) ThreeOrMore 턴
         if ($threeOrMore) {
+            echo "[DEBUG] ThreeOrMore condition met. Adding hidden turn.";
             $turnSvc->advanceHiddenTurn($roomId,  [
                 'user'   => $userId,
                 'action' => 'targetMove'
@@ -276,6 +264,7 @@ class Dice
 
         // 7) LineOfThree 턴
         if ($lineOfThree) {
+            echo "[DEBUG] LineOfThree condition met. Adding hidden turn.";
             $turnSvc->advanceHiddenTurn($roomId,  [
                 'user'   => $userId,
                 'action' => 'extraTurn',

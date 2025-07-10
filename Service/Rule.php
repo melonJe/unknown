@@ -39,13 +39,6 @@ class Rule
         echo "[Debug] isExileCondition user={$user->getUserId()} front={$frontColor} tile=" . ($tileColor ?? 'null') . " result=" . ($isExile ? 'true' : 'false') . "\n";
 
         return $isExile;
-        }
-
-        $isExile = $frontColor === 'white' || $tileColor === 'white';
-
-        echo "[Debug] isExileCondition user={$user->getUserId()} front={$frontColor} tile=" . ($tileColor ?? 'null') . " result=" . ($isExile ? 'true' : 'false') . "\n";
-
-        return $isExile;
     }
 
     /**
@@ -73,13 +66,12 @@ class Rule
         $center    = [$user->getPosX(), $user->getPosY()];
         $neighbors = $room->getNeighbors($center, 1);
         $frontColor  = $user->getDice()->getFrontColor();
-
+        echo "neighbors: " . json_encode($neighbors) . "\n";
         foreach ($neighbors as [$x, $y]) {
             if (($grid[$x][$y]['color'] ?? null) === $frontColor) {
                 return false;
             }
         }
-
         return true;
     }
 
