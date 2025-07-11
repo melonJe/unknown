@@ -57,6 +57,10 @@ class UserDto
     {
         return $this->dice;
     }
+    public function setDice(DiceDto $dice): void
+    {
+        $this->dice = $dice;
+    }
     public function getExileMarkCount(): int
     {
         return $this->exileMarkCount;
@@ -119,5 +123,4 @@ class UserDto
             'joined_at'        => $this->joinedAt->format(DateTimeInterface::ATOM),
         ];
     }
-
 }

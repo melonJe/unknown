@@ -106,4 +106,41 @@ class Turn
 
         return $this->getTurnOrder($roomId);
     }
+
+    public function removeUserFromTurns(string $roomId, string $userId): void
+    {
+        $redis = getRedis();
+
+        // Remove from hidden turn order
+        $hiddenKey = "room:{$roomId}:turn_order_hidden";
+        $currentHidden = $redis->lRange($hiddenKey, 0, -1) ?: [];
+        $newHidden = [];
+        foreach ($currentHidden as $json) {
+            $turn = json_decode($json, true);
+            if (!isset($turn['user']) || $turn['user'] !== $userId) {
+                $newHidden[] = $json;
+            }
+        }
+        // Clear the old list and push the filtered items back
+        $redis->del($hiddenKey);
+        if (!empty($newHidden)) {
+            $redis->rPush($hiddenKey, ...$newHidden);
+        }
+
+        // Remove from move turn order
+        $moveKey = "room:{$roomId}:turn_order_move";
+        $currentMove = $redis->lRange($moveKey, 0, -1) ?: [];
+        $newMove = [];
+        foreach ($currentMove as $json) {
+            $turn = json_decode($json, true);
+            if (!isset($turn['user']) || $turn['user'] !== $userId) {
+                $newMove[] = $json;
+            }
+        }
+        // Clear the old list and push the filtered items back
+        $redis->del($moveKey);
+        if (!empty($newMove)) {
+            $redis->rPush($moveKey, ...$newMove);
+        }
+    }
 }

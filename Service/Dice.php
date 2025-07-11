@@ -14,6 +14,44 @@ use DTO\DiceDto;
 
 class Dice
 {
+    public static function setDiceState(string $roomId, string $userId, array $diceData): array
+    {
+        $redis   = getRedis();
+        $userDao = new UserDao($redis);
+        $roomDao = new RoomDao($redis);
+        $turnSvc = new Turn();
+        $rule    = new Rule();
+
+        $roomDto  = $roomDao->findByRoomId($roomId);
+        $allUsers = $userDao->findAllByRoomId($roomId);
+        $user     = $allUsers[$userId];
+
+        // Update user's dice temporarily to check the new state
+        $orientation = DiceHelper::orientationFromTopFront($diceData['top'] ?? '', $diceData['front'] ?? '');
+        if (!$orientation) {
+            return Response::error('invalid dice');
+        }
+        $newDiceDto = new DiceDto(
+            $orientation['top'],
+            $orientation['bottom'],
+            $orientation['left'],
+            $orientation['right'],
+            $orientation['front'],
+            $orientation['back']
+        );
+        $user->setDice($newDiceDto);
+
+        if ($rule->isNoSameColorInNine($roomDto, $user, $allUsers, $roomDao)) {
+            // Valid state, save and advance turn
+            $userDao->save($user);
+            $redis->lPop("room:{$roomId}:turn_order_hidden");
+            return Response::success(['message' => 'Dice state updated.']);
+        } else {
+            // Invalid state, revert dice and ask user to try again
+            return Response::error('Invalid dice position. Same color found nearby.', 'setDiceState');
+        }
+    }
+
     // 좌표를 key로 변환 (클래스 내부 유틸 함수로 선언)
     private static function posKey($x, $y)
     {
@@ -156,8 +194,6 @@ class Dice
             return Response::success(['game_end'     => $goalReached]);
         }
 
-        self::applyHiddenRules($roomId, $userId);
-        echo "applying hidden rules done\n";
         $userDtos = $dao->findAllByRoomId($roomId);
 
         // Redis 저장
@@ -184,6 +220,10 @@ class Dice
             );
             $dao->save($dto);
             $redis->expire("room:{$roomId}:user:{$uid}", 60 * 60 * 24);
+        }
+
+        if ($started) {
+            self::applyHiddenRules($roomId, $userId);
         }
 
         return Response::success([
@@ -217,7 +257,7 @@ class Dice
             if ($dto->getPosX() < 0) {
                 continue;
             }
-            if ($rule->isExileCondition($roomDto, $dto, $userDao)) {
+            if ($rule->isExileCondition($roomDto, $dto)) {
                 echo "[Debug] user {$uid} is exiled\n";
                 $redis->hset("room:{$roomId}:user:{$uid}", 'pos_x', -1);
                 $redis->hset("room:{$roomId}:user:{$uid}", 'pos_y', -1);
@@ -230,6 +270,7 @@ class Dice
                 $exileCount = $redis->hIncrBy("room:{$roomId}:user:{$uid}", 'exile_mark_count', 1);
                 echo "[Debug] exile_mark_count={$exileCount}\n";
                 if ($exileCount >= 3) {
+                    $turnSvc->removeUserFromTurns($roomId, $uid);
                     User::deleteUserData($uid,  $roomId);
                 } else {
                     $redis->expire("room:{$roomId}:user:{$uid}", 86400);
@@ -237,12 +278,10 @@ class Dice
             }
         }
 
-        $user = $allUsers[$userId];
-
         // 4) 기타 룰 검사 결과를 미리 저장
-        $noSameColor   = $rule->isNoSameColorInNine($roomDto, $user, $allUsers, $roomDao);
-        $threeOrMore   = $rule->isThreeOrMoreInNine($roomDto, $user, $allUsers, $roomDao);
-        $lineOfThree   = $rule->isLineOfThree($roomDto, $user, $allUsers, $roomDao);
+        $noSameColor   = $rule->isNoSameColorInNine($roomId, $userId);
+        $threeOrMore   = $rule->isThreeOrMoreInNine($roomId, $userId);
+        $lineOfThree   = $rule->isLineOfThree($roomId, $userId);
 
         // 5) NoSameColor 턴
         if ($noSameColor) {

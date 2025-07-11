@@ -304,22 +304,23 @@ class Room
         }
         $tiles = json_decode($roomData['tiles'] ?? '', true);
         if (!isset($tiles[$x][$y]) || ($tiles[$x][$y]['type'] ?? '') !== 'start') {
-            return Response::error('invalid start');
+            return Response::error('invalid1 start');
         }
         $userIds = $redis->smembers("room:{$roomId}:users");
         foreach ($userIds as $uid) {
             $u = $redis->hgetall("room:{$roomId}:user:{$uid}");
             if ($u && (int)($u['pos_x'] ?? -1) === $x && (int)($u['pos_y'] ?? -1) === $y) {
-                return Response::error('invalid start');
+                return Response::error('invalid2 start');
             }
         }
         $orientation = DiceHelper::orientationFromTopFront($dice['top'] ?? '', $dice['front'] ?? '');
         if (!$orientation) {
-            return Response::error('invalid dice');
+            return Response::error('invalid3 dice');
         }
 
         $startScore = (int)($tiles[$x][$y]['score'] ?? 0);
 
+        $redis->lpop("room:{$roomId}:turn_order_hidden");
         $userKey = "room:{$roomId}:user:{$userId}";
         $redis->hmset($userKey, [
             'pos_x'       => $x,

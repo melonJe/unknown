@@ -22,7 +22,6 @@ class RoomDao
     {
         $key  = "room:{$roomId}";
         $data = $this->redis->hgetall($key);
-
         if (empty($data)) {
             return null;
         }
@@ -40,19 +39,20 @@ class RoomDao
         if (!is_array($tilesArray)) {
             throw new InvalidArgumentException("Invalid tiles data for room {$roomId}");
         }
-
         $tiles = [];
-        foreach ($tilesArray as $idx => $t) {
-            $tiles[] = new TileDto(
-                (int)($t['x']     ?? 0),
-                (int)($t['y']     ?? 0),
-                (string)($t['type']  ?? ''),
-                (int)($t['score'] ?? 0),
-                $t['color'] ?? null
-            );
+        foreach ($tilesArray as $x_coord_str => $tile_datas) {
+            foreach ($tile_datas as $y_coord_str => $tile_data) {
+                $scoreValue = $tile_data['score'] ?? 0;
+                $scoreForDto = ($scoreValue === 'G') ? 10000 : (int)$scoreValue;
+                $tiles[] = new TileDto(
+                    (int)$x_coord_str, // X 좌표를 정수로 변환
+                    (int)$y_coord_str, // Y 좌표를 정수로 변환
+                    (string)($tile_data['type']  ?? ''), // 'type' 필드
+                    $scoreForDto,                         // 'score' 필드
+                    $tile_data['color'] ?? null           // 'color' 필드
+                );
+            }
         }
-
-        // 날짜 문자열 → DateTimeImmutable
         $created = $createdAt
             ? new DateTimeImmutable($createdAt)
             : new DateTimeImmutable();

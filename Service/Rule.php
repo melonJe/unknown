@@ -19,16 +19,14 @@ class Rule
      *
      * @param RoomDto $room
      * @param UserDto $user
-     * @param UserDao $userDao
      * @return bool
      */
-    public function isExileCondition(RoomDto $room, UserDto $user, UserDao $userDao): bool
+    public function isExileCondition(RoomDto $roomDto, UserDto $userDto): bool
     {
-        $frontColor = $user->getDice()->getFrontColor();
-
+        $frontColor = $userDto->getDice()->getFrontColor();
         $tileColor = null;
-        foreach ($room->getTiles() as $tile) {
-            if ($tile->getX() === $user->getPosX() && $tile->getY() === $user->getPosY()) {
+        foreach ($roomDto->getTiles() as $tile) {
+            if ($tile->getX() === $userDto->getPosX() && $tile->getY() === $userDto->getPosY()) {
                 $tileColor = $tile->getColor();
                 break;
             }
@@ -36,7 +34,7 @@ class Rule
 
         $isExile = $frontColor === 'white' || $tileColor === 'white';
 
-        echo "[Debug] isExileCondition user={$user->getUserId()} front={$frontColor} tile=" . ($tileColor ?? 'null') . " result=" . ($isExile ? 'true' : 'false') . "\n";
+        echo "[Debug] isExileCondition user={$userDto->getUserId()} front={$frontColor} tile=" . ($tileColor ?? 'null') . " result=" . ($isExile ? 'true' : 'false') . "\n";
 
         return $isExile;
     }
@@ -52,21 +50,22 @@ class Rule
         return $user->getExileMarkCount() >= 3;
     }
 
-    public function isNoSameColorInNine(
-        RoomDto $room,
-        UserDto $user,
-        array $allUsers,
-        RoomDao $roomDao
-    ): bool {
-        // 타일 + 주사위 색상을 병합한 그리드
+    public function isNoSameColorInNine($roomId, $userId): bool
+    {
+        $roomDao = new RoomDao(getRedis());
+        $userDao = new UserDao(getRedis());
+        $roomDto = $roomDao->findByRoomId($roomId);
         $grid = $roomDao->getTilesWithDiceColor(
-            $room->getRoomId(),
-            $allUsers
+            $roomDto->getRoomId(),
+            $userDao->findAllByRoomId($roomId)
         );
+        $user = $userDao->findByRoomAndUserId($roomId, $userId);
+        if ($user->getPosX() <= 0 && $user->getPosY() <= 0) {
+            return false;
+        }
         $center    = [$user->getPosX(), $user->getPosY()];
-        $neighbors = $room->getNeighbors($center, 1);
+        $neighbors = $roomDto->getNeighbors($center, 1);
         $frontColor  = $user->getDice()->getFrontColor();
-        echo "neighbors: " . json_encode($neighbors) . "\n";
         foreach ($neighbors as [$x, $y]) {
             if (($grid[$x][$y]['color'] ?? null) === $frontColor) {
                 return false;
@@ -84,16 +83,20 @@ class Rule
      * @param RoomDao     $roomDao
      * @return bool
      */
-    public function isThreeOrMoreInNine(
-        RoomDto $room,
-        UserDto $user,
-        array $allUsers,
-        RoomDao $roomDao
-    ): bool {
-        $grid      = $roomDao->getTilesWithDiceColor($room->getRoomId(), $allUsers);
-        $center    = [$user->getPosX(), $user->getPosY()];
-        $neighbors = $room->getNeighbors($center, 1);
-        $frontColor  = $user->getDice()->getFrontColor();
+    public function isThreeOrMoreInNine($roomId, $userId): bool
+    {
+        $roomDao = new RoomDao(getRedis());
+        $userDao = new UserDao(getRedis());
+        $roomDto = $roomDao->findByRoomId($roomId);
+        $allUsers = $userDao->findAllByRoomId($roomId);
+        $userDto = $userDao->findByRoomAndUserId($roomId, $userId);
+        if ($userDto->getPosX() <= 0 && $userDto->getPosY() <= 0) {
+            return false;
+        }
+        $grid      = $roomDao->getTilesWithDiceColor($roomDto->getRoomId(), $allUsers);
+        $center    = [$userDto->getPosX(), $userDto->getPosY()];
+        $neighbors = $roomDto->getNeighbors($center, 1);
+        $frontColor  = $userDto->getDice()->getFrontColor();
         $count     = 1; // 본인 포함
 
         foreach ($neighbors as [$x, $y]) {
@@ -117,20 +120,24 @@ class Rule
      * @param RoomDao     $roomDao
      * @return bool
      */
-    public function isYellowSpecial(
-        RoomDto $room,
-        UserDto $user,
-        array $allUsers,
-        RoomDao $roomDao
-    ): bool {
-        $frontColor = $user->getDice()->getFrontColor();
+    public function isYellowSpecial($roomId, $userId): bool
+    {
+        $roomDao = new RoomDao(getRedis());
+        $userDao = new UserDao(getRedis());
+        $roomDto = $roomDao->findByRoomId($roomId);
+        $userDto = $userDao->findByRoomAndUserId($roomId, $userId);
+        if ($userDto->getPosX() <= 0 && $userDto->getPosY() <= 0) {
+            return false;
+        }
+        $allUsers = $userDao->findAllByRoomId($roomId);
+        $frontColor = $userDto->getDice()->getFrontColor();
         if ($frontColor !== 'yellow') {
             return false;
         }
 
-        $grid      = $roomDao->getTilesWithDiceColor($room->getRoomId(), $allUsers);
-        $center    = [$user->getPosX(), $user->getPosY()];
-        $neighbors = $room->getNeighbors($center, 1);
+        $grid      = $roomDao->getTilesWithDiceColor($roomDto->getRoomId(), $allUsers);
+        $center    = [$userDto->getPosX(), $userDto->getPosY()];
+        $neighbors = $roomDto->getNeighbors($center, 1);
         $count     = 0;
 
         foreach ($neighbors as [$x, $y]) {
@@ -154,16 +161,20 @@ class Rule
      * @param RoomDao     $roomDao
      * @return bool
      */
-    public function isLineOfThree(
-        RoomDto $room,
-        UserDto $user,
-        array $allUsers,
-        RoomDao $roomDao
-    ): bool {
-        $grid       = $roomDao->getTilesWithDiceColor($room->getRoomId(), $allUsers);
-        $startX     = $user->getPosX();
-        $startY     = $user->getPosY();
-        $frontColor   = $user->getDice()->getFrontColor();
+    public function isLineOfThree($roomId, $userId): bool
+    {
+        $roomDao = new RoomDao(getRedis());
+        $userDao = new UserDao(getRedis());
+        $roomDto = $roomDao->findByRoomId($roomId);
+        $userDto = $userDao->findByRoomAndUserId($roomId, $userId);
+        if ($userDto->getPosX() <= 0 && $userDto->getPosY() <= 0) {
+            return false;
+        }
+        $allUsers = $userDao->findAllByRoomId($roomId);
+        $grid       = $roomDao->getTilesWithDiceColor($roomDto->getRoomId(), $allUsers);
+        $startX     = $userDto->getPosX();
+        $startY     = $userDto->getPosY();
+        $frontColor   = $userDto->getDice()->getFrontColor();
         $directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
 
         foreach ($directions as [$dx, $dy]) {
