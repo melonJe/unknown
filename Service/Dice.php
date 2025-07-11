@@ -14,9 +14,145 @@ use DTO\DiceDto;
 
 class Dice
 {
+    public static function targetMove(string $roomId, string $userId, string $targetUserId, string $direction): array
+    {
+        $redis   = getRedis();
+        $userDao = new UserDao($redis);
+        $rule    = new Rule();
+
+        $allUsers = $userDao->findAllByRoomId($roomId);
+        $user     = $allUsers[$userId];
+
+        $targetUser = $allUsers[$targetUserId];
+        if ($user->getDice()->getFrontColor() !== $targetUser->getDice()->getTopColor()) {
+            return Response::error('Invalid dice position. Same color found nearby.', 'targetMove');
+        }
+
+        if (!$roomId || !$direction || !$userId) {
+            http_response_code(400);
+            return Response::error('room_id, direction, user_id required');
+        }
+
+        $roomKey = "room:{$roomId}";
+        $redis->expire($roomKey, 60 * 60 * 24);
+        $roomData = $redis->hgetall($roomKey);
+
+        if (!$roomData) {
+            http_response_code(404);
+            return Response::error('room not found');
+        }
+        $tiles = json_decode($roomData['tiles'], true);
+
+        $userStates = [];
+        $userDtos   = $userDao->findAllByRoomId($roomId);
+        foreach ($userDtos as $uid => $dto) {
+            $userStates[$uid] = [
+                'pos_x' => $dto->getPosX(),
+                'pos_y' => $dto->getPosY(),
+                'dice'  => $dto->getDice()->toArray(),
+            ];
+        }
+
+        $curr = $userStates[$targetUserId];
+        $x = (int) $curr['pos_x'];
+        $y = (int) $curr['pos_y'];
+        // 방향 처리
+        $dx = 0;
+        $dy = 0;
+        switch ($direction) {
+            case 'up':
+                $dy = -1;
+                break;
+            case 'down':
+                $dy = 1;
+                break;
+            case 'left':
+                $dx = -1;
+                break;
+            case 'right':
+                $dx = 1;
+                break;
+            default:
+                http_response_code(400);
+                return Response::error('invalid direction');
+        }
+
+        $nx = $x + $dx;
+        $ny = $y + $dy;
+
+        if (!DiceHelper::isValidTile($nx, $ny, $tiles)) {
+            http_response_code(400);
+            return Response::error('destination invalid');
+        }
+
+        // 위치 → 유저 매핑
+        $posToUid = [];
+        foreach ($userStates as $uid => $state) {
+            $posToUid[self::posKey($state['pos_x'], $state['pos_y'])] = $uid;
+        }
+
+        // 미는게 가능한지
+        if (!self::tryPush($userStates, $nx, $ny, $dx, $dy, $tiles, $posToUid, $direction)) {
+            http_response_code(400);
+            return Response::error('cannot push into invalid tile');
+        }
+
+        // 내 주사위 이동
+        $myNewDice = DiceHelper::roll($userStates[$targetUserId]['dice'], $direction);
+        $userStates[$targetUserId]['pos_x'] = $nx;
+        $userStates[$targetUserId]['pos_y'] = $ny;
+        $userStates[$targetUserId]['dice']  = $myNewDice;
+
+        $goalReached = false;
+        foreach ($userStates as $state) {
+            $t = $tiles[$state['pos_x']][$state['pos_y']]['type'] ?? '';
+            if ($t === 'goal') {
+                $goalReached = true;
+                break;
+            }
+        }
+
+        if ($goalReached) {
+            $redis->hset($roomKey, 'finished', '1');
+            $redis->del("room:{$roomId}:turn_order_move");
+            $redis->del("room:{$roomId}:turn_order_move");
+            return Response::success(['game_end'     => $goalReached]);
+        }
+
+        $userDtos = $userDao->findAllByRoomId($roomId);
+
+        // Redis 저장
+        foreach ($userStates as $uid => $state) {
+            $orig = $userDtos[$uid] ?? null;
+            if (!$orig) {
+                continue;
+            }
+            $dto = new UserDto(
+                $roomId,
+                $uid,
+                $state['pos_x'],
+                $state['pos_y'],
+                $orig->getExileMarkCount(),
+                new DiceDto(
+                    $state['dice']['top'],
+                    $state['dice']['bottom'],
+                    $state['dice']['left'],
+                    $state['dice']['right'],
+                    $state['dice']['front'],
+                    $state["dice"]["back"],
+                ),
+                $orig->getJoinedAt()
+            );
+            $userDao->save($dto);
+            $redis->expire("room:{$roomId}:user:{$uid}", 60 * 60 * 24);
+        }
+
+        self::applyHiddenRules($roomId, $userId);
+
+        return Response::success(['message' => 'Dice state updated.']);
+    }
     public static function setDiceState(string $roomId, string $userId, array $diceData): array
     {
-
         $redis   = getRedis();
         $userDao = new UserDao($redis);
         $rule    = new Rule();
@@ -100,7 +236,7 @@ class Dice
         $started  = isset($roomData['started']) && $roomData['started'] !== '0';
         if ($started) {
             $turnUser  = $turnService->getCurrentTurn($roomId);
-            if ($turnUser['user'] !== $userId || $turnUser['action'] !== 'move') {
+            if ($turnUser['user'] !== $userId || !($turnUser['action'] === 'move' || $turnUser['action'] === 'extraTurn')) {
                 http_response_code(403);
                 return Response::error('not your turn');
             }

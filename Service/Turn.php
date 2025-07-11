@@ -10,31 +10,57 @@ class Turn
 {
     public static function getHiddenOrder(string $roomId): array
     {
-        $rule    = new Rule();
-        $redis   = getRedis();
-        $key   = "room:{$roomId}:turn_order_hidden";
-        $items = $redis->lRange($key, 0, -1) ?: [];
+        $rule = new Rule();
+        $redis = getRedis(); // Assuming getRedis() correctly returns a Redis client instance
+        $key = "room:{$roomId}:turn_order_hidden";
+        $items = $redis->lRange($key, 0, -1) ?: []; // Ensure $items is always an array
+
         $result = [];
-        foreach ($items as $item) {
-            $item = json_decode($item, true);
-            if ($item['action'] === 'setDiceState') {
-                if ($rule->isNoSameColorInNine($roomId, $item['user'])) {
-                    $result[] = $item;
-                }
-            } elseif ($item['action'] !== 'targetMove') {
-                if ($rule->isThreeOrMoreInNine($roomId, $item['user'])) {
-                    $result[] = $item;
-                }
-            } elseif ($item['action'] !== 'extraTurn') {
-                if ($rule->isLineOfThree($roomId, $item['user'])) {
-                    $result[] = $item;
+
+        if (!empty($items)) {
+            foreach ($items as $itemString) { // Renamed $item to $itemString for clarity
+                $decodedItem = json_decode($itemString, true);
+
+                // --- Potential problem lines were here (20, 24, 28) ---
+                // Add a check to ensure $decodedItem is an array and not null
+                if (is_array($decodedItem)) { // This is the crucial check
+                    if ($decodedItem['action'] === 'setDiceState') {
+                        // Line 20 (original)
+                        if ($rule->isNoSameColorInNine($roomId, $decodedItem['user'])) {
+                            $result[] = $decodedItem;
+                        }
+                    } elseif ($decodedItem['action'] === 'targetMove') {
+                        // Line 24 (original)
+                        if ($rule->isThreeOrMoreInNine($roomId, $decodedItem['user'])) {
+                            $result[] = $decodedItem;
+                        }
+                    } elseif ($decodedItem['action'] === 'extraTurn') {
+                        // Line 28 (original)
+                        if ($rule->isLineOfThree($roomId, $decodedItem['user'])) {
+                            $result[] = $decodedItem;
+                        }
+                    }
+                } else {
+                    // Optional: Log or handle cases where JSON decoding fails
+                    error_log("Warning: Failed to decode JSON item from Redis for room '{$roomId}': {$itemString}");
                 }
             }
         }
+
+        $redis->del($key); // Clear the old key
+
+        // If $result is not empty, re-push valid items back to Redis
+        if (!empty($result)) {
+            // Convert each item in $result back to JSON string for rPush
+            $jsonResults = array_map('json_encode', $result);
+            $redis->rPush($key, ...$jsonResults);
+        }
+
+        // Final mapping to the desired output format
         return array_map(
-            static fn(string $json): array => [
-                'user'   => ($t = json_decode($json, true))['user'],
-                'action' => $t['action'],
+            static fn(array $item): array => [
+                'user' => $item['user'],
+                'action' => $item['action'],
             ],
             $result
         );

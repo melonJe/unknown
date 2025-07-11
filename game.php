@@ -99,10 +99,7 @@ if (!$room_id) {
                             setDiceState(msg.user);
                         }
                         if (currentUser.user === myUserId && currentUser.action === 'targetMove') {
-
-                        }
-                        if (currentUser.user === myUserId && currentUser.action === 'extraTurn') {
-
+                            targetMove(msg.user);
                         }
                         break;
 
@@ -485,6 +482,54 @@ if (!$room_id) {
             newCube.querySelectorAll('.face').forEach(f => {
                 const faceName = f.classList[1];
                 f.style.background = colorMap[startDiceData[faceName]] || 'white';
+            });
+        });
+    }
+
+    // 다른 플레이어의 주사위를 굴릴 수 있는 권한 (targetMove)
+    // 서버에는 아직 target_move 액션이 완전히 구현되지 않았지만,
+    // 클라이언트에서 해당 주사위를 드래그하여 방향을 선택하고
+    // 서버로 { action: 'target_move', room_id, user_id, target_user_id, direction } 형태로 전송한다.
+    // msg.user 파라미터에는 대상 유저의 정보가 전달된다고 가정한다.
+    function targetMove(user) {
+        const board = document.getElementById('board');
+        const allDice = board.querySelectorAll('.dice');
+        if (!allDice) {
+            console.warn('targetMove: dice element not found');
+            return;
+        }
+
+        allDice.forEach(cube => {
+            console.log(cube);
+            if (user.dice.front !== cube.querySelector('.face.front').style.background) {
+                return;
+            }
+            // 기존 cube 교체하여 drag 이벤트 초기화
+            const newCube = cube.cloneNode(true);
+            cube.parentNode.replaceChild(newCube, cube);
+            tile = cube.parentNode.parentNode;
+
+            // 강조 표시
+            tile.classList.add('selectable');
+
+            setupDiceDrag(newCube, (dx, dy) => {
+                if (Math.abs(dx) < 50 && Math.abs(dy) < 50) return;
+                const direction = Math.abs(dx) > Math.abs(dy) ?
+                    (dx > 0 ? 'right' : 'left') :
+                    (dy > 0 ? 'down' : 'up');
+
+                ws.send(JSON.stringify({
+                    action: 'target_move',
+                    room_id: roomId,
+                    user_id: myUserId, // 명령을 내리는 유저 (나)
+                    target_user_id: target.user || target.user_id || target
+                        .id, // 실제로 움직일 대상 유저
+                    direction
+                }));
+
+                // 한번 전송 후 더 이상 드래그 안 되도록 제거 (원한다면)
+                newCube.replaceWith(newCube.cloneNode(true));
+                tile.classList.remove('selectable');
             });
         });
     }

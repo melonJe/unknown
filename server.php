@@ -140,6 +140,17 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                 }
                 break;
             case 'target_move':
+                $result = Dice::targetMove($msg['room_id'], $msg['user_id'], $msg['target_user_id'], $msg['direction']);
+                if (!$result['success']) {
+                    $conn->send(json_encode(['type' => 'error', 'message' => $result['error']]));
+                    break;
+                }
+                foreach ($ws_worker->connections as $c) {
+                    if ($c->roomId === $msg['room_id']) {
+                        $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
+                        $c->send(json_encode(['type' => 'next_turn', 'user' => User::getUserData($msg['room_id'], $msg['user_id']), 'turn_order' => Turn::getTurnOrder($msg['room_id'])]));
+                    }
+                }
                 break;
             case 'extra_turn':
                 break;
