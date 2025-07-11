@@ -501,7 +501,8 @@ if (!$room_id) {
 
         allDice.forEach(cube => {
             console.log(cube);
-            if (user.dice.front !== cube.querySelector('.face.front').style.background) {
+            if (user.dice.front !== 'yellow' && user.dice.front !== cube.querySelector('.face.front').style
+                .background) {
                 return;
             }
             // 기존 cube 교체하여 drag 이벤트 초기화

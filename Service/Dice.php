@@ -24,7 +24,7 @@ class Dice
         $user     = $allUsers[$userId];
 
         $targetUser = $allUsers[$targetUserId];
-        if ($user->getDice()->getFrontColor() !== $targetUser->getDice()->getTopColor()) {
+        if ($user->getDice()->getFrontColor() !== 'yellow' && $user->getDice()->getFrontColor() !== $targetUser->getDice()->getTopColor()) {
             return Response::error('Invalid dice position. Same color found nearby.', 'targetMove');
         }
 
