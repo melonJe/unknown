@@ -20,9 +20,6 @@ RUN curl -sS https://getcomposer.org/installer | php -- \
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy environment files
-COPY .env .env.example .env.production .env.testing ./
-
 # Copy composer files
 COPY composer.json composer.lock ./
 
@@ -35,10 +32,6 @@ COPY . .
 FROM base as workerman
 # Expose ports
 EXPOSE 8080
-
-# Add environment variables
-ENV APP_ENV=production \
-    APP_DEBUG=false
 
 # Start Workerman server
 CMD ["php", "server.php", "start"]
