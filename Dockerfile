@@ -1,24 +1,51 @@
 # Dockerfile
-FROM php:8.1-cli
+FROM php:8.2-cli as base
 
-# 시스템 의존성 설치 (composer, pcntl 등)
-RUN apt-get update \
-  && apt-get install -y unzip git \
-  && docker-php-ext-install pcntl \
-  && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    unzip \
+    libpq-dev \
+    && docker-php-ext-install \
+    pcntl \
+    pdo_pgsql \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Composer 설치
+# Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- \
-  --install-dir=/usr/bin --filename=composer
+    --install-dir=/usr/bin --filename=composer
 
+# Set working directory
 WORKDIR /var/www/html
 
-# 의존성 선언만 복사 후 설치 (빌드 캐시 활용)
+# Copy environment files
+COPY .env .env.example .env.production .env.testing ./
+
+# Copy composer files
 COPY composer.json composer.lock ./
+
+# Install dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# 애플리케이션 코드 복사
+# Copy application
 COPY . .
 
-# 기본 커맨드: Workerman 서버 실행
+FROM base as workerman
+# Expose ports
+EXPOSE 8080
+
+# Add environment variables
+ENV APP_ENV=production \
+    APP_DEBUG=false
+
+# Start Workerman server
 CMD ["php", "server.php", "start"]
+
+FROM base as web
+# Expose ports
+EXPOSE 8000
+
+# Start PHP built-in server
+CMD ["php", "-S", "0.0.0.0:8000"]

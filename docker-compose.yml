@@ -1,4 +1,35 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: unknown/Dockerfile
+      target: workerman
+    container_name: app
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: unknown/Dockerfile
+      target: web
+    container_name: web
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/var/www/html
+    restart: unless-stopped
+
   redis:
     image: redis:7.2-alpine
     container_name: redis
@@ -10,7 +41,7 @@ services:
     volumes:
       - ./redis_data:/data
     restart: unless-stopped
-      
+
   postgres:
     image: postgres:16-alpine
     container_name: postgres

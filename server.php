@@ -2,18 +2,13 @@
 
 require_once __DIR__ . '/vendor/autoload.php';
 
-set_error_handler(function ($level, $message, $file, $line) {
-    echo "[Error] {$message} in {$file}:{$line}\n";
-});
+set_error_handler(function ($level, $message, $file, $line) {});
 
-set_exception_handler(function (Throwable $e) {
-    echo "[Exception] {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}\n";
-});
+set_exception_handler(function (Throwable $e) {});
 
 register_shutdown_function(function () {
     $error = error_get_last();
     if ($error !== null) {
-        echo "[Fatal] {$error['message']} in {$error['file']}:{$error['line']}\n";
     }
 });
 
@@ -37,7 +32,6 @@ $ws_worker->onWebSocketConnect = function (TcpConnection $conn, Request $request
         $conn->roomId = $request->get('roomId');
         $conn->userId = $request->get('userId');
     } catch (Throwable $e) {
-        echo "[Connect Exception] {$e->getMessage()}\n";
     }
 };
 
@@ -159,7 +153,6 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
         }
     } catch (Throwable $e) {
         $conn->send(json_encode(['type' => 'error', 'message' => 'server_error']));
-        echo "[Message Exception] {$e->getMessage()}\n";
     }
 };
 
@@ -182,13 +175,10 @@ $ws_worker->onClose = function (TcpConnection $conn) use (&$ws_worker) {
             }
         }
     } catch (Throwable $e) {
-        echo "[Close Exception] {$e->getMessage()}\n";
     }
 };
 
-$ws_worker->onError = function ($connection, $code, $msg) {
-    echo "[Worker Error] {$code}: {$msg}\n";
-};
+$ws_worker->onError = function ($connection, $code, $msg) {};
 
 // 서버 실행
 Worker::runAll();
