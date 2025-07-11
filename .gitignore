@@ -6,7 +6,6 @@ composer.phar
 debug.log
 .idea
 
-README.md
 workerman.log
 
 workerman.server.php.pid
