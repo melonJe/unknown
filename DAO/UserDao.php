@@ -23,7 +23,6 @@ class UserDao
     {
         $key  = $this->getRedisKey($roomId, $userId);
         $data = $this->redis->hgetall($key);
-
         if (empty($data)) {
             return null;
         }

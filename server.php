@@ -127,7 +127,11 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                 }
                 break;
             case 'set_dice_state':
-                Dice::setDiceState($msg['room_id'], $msg['user_id'], $msg['dice']);
+                $result = Dice::setDiceState($msg['room_id'], $msg['user_id'], $msg['dice']);
+                if (!$result['success']) {
+                    $conn->send(json_encode(['type' => 'error', 'message' => $result['error']]));
+                    break;
+                }
                 foreach ($ws_worker->connections as $c) {
                     if ($c->roomId === $msg['room_id']) {
                         $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));

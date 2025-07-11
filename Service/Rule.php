@@ -34,8 +34,6 @@ class Rule
 
         $isExile = $frontColor === 'white' || $tileColor === 'white';
 
-        echo "[Debug] isExileCondition user={$userDto->getUserId()} front={$frontColor} tile=" . ($tileColor ?? 'null') . " result=" . ($isExile ? 'true' : 'false') . "\n";
-
         return $isExile;
     }
 

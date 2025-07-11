@@ -10,16 +10,33 @@ class Turn
 {
     public static function getHiddenOrder(string $roomId): array
     {
-        $redis = getRedis();
+        $rule    = new Rule();
+        $redis   = getRedis();
         $key   = "room:{$roomId}:turn_order_hidden";
         $items = $redis->lRange($key, 0, -1) ?: [];
-
+        $result = [];
+        foreach ($items as $item) {
+            $item = json_decode($item, true);
+            if ($item['action'] === 'setDiceState') {
+                if ($rule->isNoSameColorInNine($roomId, $item['user'])) {
+                    $result[] = $item;
+                }
+            } elseif ($item['action'] !== 'targetMove') {
+                if ($rule->isThreeOrMoreInNine($roomId, $item['user'])) {
+                    $result[] = $item;
+                }
+            } elseif ($item['action'] !== 'extraTurn') {
+                if ($rule->isLineOfThree($roomId, $item['user'])) {
+                    $result[] = $item;
+                }
+            }
+        }
         return array_map(
             static fn(string $json): array => [
                 'user'   => ($t = json_decode($json, true))['user'],
                 'action' => $t['action'],
             ],
-            $items
+            $result
         );
     }
 

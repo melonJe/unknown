@@ -467,7 +467,7 @@ if (!$room_id) {
             ws.send(JSON.stringify({
                 action: 'set_dice_state',
                 room_id: roomId,
-                user_id: userId,
+                user_id: myUserId,
                 x: Number(tile.dataset.x),
                 y: Number(tile.dataset.y),
                 dice: startDiceData

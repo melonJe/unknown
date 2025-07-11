@@ -16,13 +16,11 @@ class Dice
 {
     public static function setDiceState(string $roomId, string $userId, array $diceData): array
     {
+
         $redis   = getRedis();
         $userDao = new UserDao($redis);
-        $roomDao = new RoomDao($redis);
-        $turnSvc = new Turn();
         $rule    = new Rule();
 
-        $roomDto  = $roomDao->findByRoomId($roomId);
         $allUsers = $userDao->findAllByRoomId($roomId);
         $user     = $allUsers[$userId];
 
@@ -31,19 +29,15 @@ class Dice
         if (!$orientation) {
             return Response::error('invalid dice');
         }
-        $newDiceDto = new DiceDto(
-            $orientation['top'],
-            $orientation['bottom'],
-            $orientation['left'],
-            $orientation['right'],
-            $orientation['front'],
-            $orientation['back']
-        );
-        $user->setDice($newDiceDto);
-
-        if ($rule->isNoSameColorInNine($roomDto, $user, $allUsers, $roomDao)) {
+        $userKey = "room:{$roomId}:user:{$userId}";
+        $redis->hmset($userKey, [
+            'pos_x'       => $user->getPosX(),
+            'pos_y'       => $user->getPosY(),
+            'dice'        => json_encode($orientation),
+        ]);
+        $redis->expire($userKey, 60 * 60 * 24);
+        if (!$rule->isNoSameColorInNine($roomId, $userId)) {
             // Valid state, save and advance turn
-            $userDao->save($user);
             $redis->lPop("room:{$roomId}:turn_order_hidden");
             return Response::success(['message' => 'Dice state updated.']);
         } else {
@@ -235,7 +229,6 @@ class Dice
 
     private static function applyHiddenRules(string $roomId, string $userId): bool
     {
-        echo "applying hidden rules\n";
         $redis   = getRedis();
         $userDao = new UserDao($redis);
         $roomDao = new RoomDao($redis);
@@ -245,7 +238,6 @@ class Dice
         // 1) 룸 조회
         $roomDto = $roomDao->findByRoomId($roomId);
         if (!$roomDto) {
-            echo "room not found\n";
             return false;
         }
 
@@ -258,17 +250,14 @@ class Dice
                 continue;
             }
             if ($rule->isExileCondition($roomDto, $dto)) {
-                echo "[Debug] user {$uid} is exiled\n";
                 $redis->hset("room:{$roomId}:user:{$uid}", 'pos_x', -1);
                 $redis->hset("room:{$roomId}:user:{$uid}", 'pos_y', -1);
                 $turnSvc->advanceHiddenTurn($roomId, [
                     'user'   => $uid,
                     'action' => 'setStartTile',
                 ]);
-                echo "[Debug] hidden turn added for {$uid}\n";
 
                 $exileCount = $redis->hIncrBy("room:{$roomId}:user:{$uid}", 'exile_mark_count', 1);
-                echo "[Debug] exile_mark_count={$exileCount}\n";
                 if ($exileCount >= 3) {
                     $turnSvc->removeUserFromTurns($roomId, $uid);
                     User::deleteUserData($uid,  $roomId);
@@ -285,7 +274,6 @@ class Dice
 
         // 5) NoSameColor 턴
         if ($noSameColor) {
-            echo "[DEBUG] NoSameColor condition met. Adding hidden turn.";
             $turnSvc->advanceHiddenTurn($roomId,  [
                 'user'   => $userId,
                 'action' => 'setDiceState',
@@ -294,7 +282,6 @@ class Dice
 
         // 6) ThreeOrMore 턴
         if ($threeOrMore) {
-            echo "[DEBUG] ThreeOrMore condition met. Adding hidden turn.";
             $turnSvc->advanceHiddenTurn($roomId,  [
                 'user'   => $userId,
                 'action' => 'targetMove'
@@ -303,7 +290,6 @@ class Dice
 
         // 7) LineOfThree 턴
         if ($lineOfThree) {
-            echo "[DEBUG] LineOfThree condition met. Adding hidden turn.";
             $turnSvc->advanceHiddenTurn($roomId,  [
                 'user'   => $userId,
                 'action' => 'extraTurn',

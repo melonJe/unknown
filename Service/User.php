@@ -6,17 +6,14 @@ require_once __DIR__ . '/../lib/constants.php';
 require_once LIB_PATH . '/redis.php';
 
 use DAO\UserDao;
-use DTO\DiceDto;
-use DTO\UserDto;
 
 class User
 {
-    public static function getUserData($userId, $roomId)
+    public static function getUserData($roomId, $userId)
     {
         $redis   = getRedis();
         $dao     = new UserDao($redis);
         $redis->expire("room:{$roomId}:users", 60 * 60 * 24);
-
         $dto = $dao->findByRoomAndUserId($roomId, $userId);
         return $dto ? $dto->toArray() : [];
     }
