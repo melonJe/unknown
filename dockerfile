@@ -29,16 +29,11 @@ RUN composer install --no-dev --optimize-autoloader
 # Copy application
 COPY . .
 
-FROM base AS workerman
+# Final app stage
+FROM base AS app
+
 # Expose ports
-EXPOSE 8080
+EXPOSE 8000 8080
 
-# Start Workerman server
-CMD ["php", "server.php", "start"]
-
-FROM base AS web
-# Expose ports
-EXPOSE 8000
-
-# Start PHP built-in server
-CMD ["php", "-S", "0.0.0.0:8000"]
+# Start both Workerman and PHP built-in server
+CMD ["sh", "-c", "php server.php start -d & php -S 0.0.0.0:8000"]

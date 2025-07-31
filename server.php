@@ -20,7 +20,7 @@ use Service\User;
 use Service\Dice;
 use Service\Turn;
 
-$ws_worker = new Worker("websocket://0.0.0.0:8080");
+$ws_worker = new Worker("websocket://$_ENV['WEBSOCKET_HOST']:$_ENV['WEBSOCKET_PORT']");
 
 // 클라이언트 전체 목록
 $ws_worker->connections = [];
