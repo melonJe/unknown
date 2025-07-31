@@ -8,8 +8,6 @@ services:
       - .env
     ports:
       - "8080:8080"
-    volumes:
-      - ./unknown:/var/www/html
     depends_on:
       - redis
       - postgres
@@ -24,8 +22,6 @@ services:
       - .env
     ports:
       - "8000:8000"
-    volumes:
-      - ./unknown:/var/www/html
     restart: unless-stopped
 
   redis:
@@ -50,3 +46,4 @@ services:
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+
