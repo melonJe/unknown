@@ -1,5 +1,5 @@
 # Dockerfile
-FROM php:8.2-cli as base
+FROM php:8.2-cli AS base
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -29,14 +29,14 @@ RUN composer install --no-dev --optimize-autoloader
 # Copy application
 COPY . .
 
-FROM base as workerman
+FROM base AS workerman
 # Expose ports
 EXPOSE 8080
 
 # Start Workerman server
 CMD ["php", "server.php", "start"]
 
-FROM base as web
+FROM base AS web
 # Expose ports
 EXPOSE 8000
 
