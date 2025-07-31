@@ -1,8 +1,7 @@
 services:
   app:
     build:
-      context: .
-      dockerfile: unknown/Dockerfile
+      context: unknown
       target: workerman
     container_name: app
     env_file:
@@ -18,8 +17,7 @@ services:
 
   web:
     build:
-      context: .
-      dockerfile: unknown/Dockerfile
+      context: unknown
       target: web
     container_name: web
     env_file:
