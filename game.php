@@ -1,5 +1,6 @@
 <?php
 
+$websocket_url = getenv('WEBSOCKET_URL') ?: 'ws://unknown_websocket.meloncaput.com:38080';
 $room_id = $_GET['room_id'] ?? '';
 if (!$room_id) {
     header('Location: index.php');
@@ -51,7 +52,7 @@ if (!$room_id) {
     (async function() {
         try {
             myUserId = await getUserId();
-            ws = new WebSocket("ws://unknown_websocket.meloncaput.com:8080/?roomId=" + roomId + "&userId=" + myUserId);
+            ws = new WebSocket("<?= $websocket_url ?>/?roomId=" + roomId + "&userId=" + myUserId);
 
             ws.onopen = () => {
                 ws.send(JSON.stringify({

@@ -1,3 +1,7 @@
+<?php
+
+$websocket_url = getenv('WEBSOCKET_URL') ?: 'ws://unknown_websocket.meloncaput.com:38080';
+?>
 <!DOCTYPE html>
 <html lang="ko">
 
@@ -40,7 +44,7 @@
       .then(res => res.json())
       .then(user => {
         myUserId = user.user_id;
-        ws = new WebSocket("ws://unknown_websocket.meloncaput.com:8080/?&userId=" + myUserId);
+        ws = new WebSocket("<?= $websocket_url ?>/?&userId=" + myUserId);
         ws.onopen = () => {
           console.log('웹소켓 연결됨');
           ws.send(JSON.stringify({
