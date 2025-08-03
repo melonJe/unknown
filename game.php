@@ -51,7 +51,7 @@ if (!$room_id) {
     (async function() {
         try {
             myUserId = await getUserId();
-            ws = new WebSocket("ws://localhost:8080/?roomId=" + roomId + "&userId=" + myUserId);
+            ws = new WebSocket("ws://unknown_websocket.meloncaput.com:8080/?roomId=" + roomId + "&userId=" + myUserId);
 
             ws.onopen = () => {
                 ws.send(JSON.stringify({
