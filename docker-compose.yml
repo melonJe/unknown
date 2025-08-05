@@ -3,6 +3,7 @@ services:
     build:
       context: unknown
       target: app
+    image: unknown-game:latest
     container_name: unknown-game
     env_file: .env
     environment:
