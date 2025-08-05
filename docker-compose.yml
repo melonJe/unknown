@@ -1,9 +1,9 @@
 services:
-  unknown:
+  unknown-game:
     build:
       context: unknown
       target: app
-    container_name: unknown
+    container_name: unknown-game
     env_file: .env
     environment:
       - WEBSOCKET_HOST=0.0.0.0
