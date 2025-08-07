@@ -16,7 +16,7 @@ if (!$room_id) {
     <link rel="stylesheet" href="style.css">
 </head>
 
-<body>
+<body data-ws-url="<?= $websocket_url ?>" data-room-id="<?= $room_id ?>">
     <h1>방 ID: <?= htmlspecialchars($room_id) ?></h1>
     <button onclick="location.href='index.php'">🔙 대기실로</button>
     <button id="startBtn">Start Game</button>
@@ -24,7 +24,7 @@ if (!$room_id) {
     <div id="turn-order"></div>
     <div id="start-dice"></div>
 
-    <script>
+
     let roomId = "<?= $room_id ?>";
     let myUserId;
     let boardWidth;
@@ -548,7 +548,8 @@ if (!$room_id) {
                 console.warn('Unknown action:', action);
         }
     }
-    </script>
+
+  <script src="game.js"></script>
 </body>
 
 </html>
