@@ -6,6 +6,7 @@ body {
   font-family: sans-serif;
   text-align: center;
   background: #f8f8f8;
+  padding: 20px;
 }
 
 #board {
@@ -185,4 +186,13 @@ body {
 .tile.selectable {
   outline: 3px dashed #333;
   cursor: pointer;
+}
+
+#room-list {
+  list-style: none;
+  padding: 0;
+}
+
+#room-list li {
+  margin: 8px 0;
 }

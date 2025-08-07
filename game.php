@@ -1,6 +1,6 @@
 <?php
 
-$websocket_url = getenv('WEBSOCKET_URL') ?: 'ws://unknown_websocket.meloncaput.com:38080';
+$websocket_url = getenv('WEBSOCKET_URL') ?: 'ws://unknown_ws.meloncaput.com:38080';
 $room_id = $_GET['room_id'] ?? '';
 if (!$room_id) {
     header('Location: index.php');

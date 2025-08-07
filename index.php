@@ -1,6 +1,6 @@
 <?php
 
-$websocket_url = getenv('WEBSOCKET_URL') ?: 'ws://unknown_websocket.meloncaput.com:38080';
+$websocket_url = getenv('WEBSOCKET_URL') ?: 'ws://unknown_ws.meloncaput.com:38080';
 ?>
 <!DOCTYPE html>
 <html lang="ko">
@@ -9,21 +9,7 @@ $websocket_url = getenv('WEBSOCKET_URL') ?: 'ws://unknown_websocket.meloncaput.c
   <meta charset="UTF-8">
   <title>보드게임 대기실</title>
   <link rel="stylesheet" href="style.css">
-  <style>
-    body {
-      font-family: sans-serif;
-      padding: 20px;
-    }
 
-    #room-list {
-      list-style: none;
-      padding: 0;
-    }
-
-    #room-list li {
-      margin: 8px 0;
-    }
-  </style>
 </head>
 
 <body>
