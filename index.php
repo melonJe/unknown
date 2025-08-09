@@ -1,6 +1,6 @@
 <?php
 
-$websocket_url = getenv('WEBSOCKET_URL') ?: 'ws://unknown_ws.meloncaput.com';
+$websocket_url = getenv('WEBSOCKET_URL') ?: 'wss://unknown_ws.meloncaput.com';
 ?>
 <!DOCTYPE html>
 <html lang="ko">
