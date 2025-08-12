@@ -27,7 +27,7 @@ const colorMap = {
 (async function () {
   try {
     myUserId = await getUserId();
-    ws = new WebSocket(`${wsUrl}/?roomId=${roomId}&userId=${myUserId}`);
+    ws = new WebSocket(`${wsUrl}?roomId=${roomId}&userId=${myUserId}`);
 
     ws.onopen = () => {
       ws.send(
