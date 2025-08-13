@@ -23,8 +23,9 @@ WORKDIR /var/www/html
 # Copy composer files
 COPY composer.json composer.lock ./
 
-# Install dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Install dependencies including Workerman
+RUN composer require workerman/workerman && \
+    composer install --no-dev --optimize-autoloader
 
 # Copy application
 COPY . .
@@ -35,5 +36,5 @@ FROM base AS app
 # Expose ports
 EXPOSE 8000 8080
 
-# Start both Workerman and PHP built-in server
+# Start both servers without Supervisor
 CMD ["sh", "-c", "php server.php start -d & php -S 0.0.0.0:8000"]
