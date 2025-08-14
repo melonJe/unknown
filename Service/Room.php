@@ -90,7 +90,7 @@ class Room
         $redis = getRedis();
         $pdo = getPdo();
 
-        $mapId = 0;
+        $mapId = 1;
         $stmt = $pdo->prepare('SELECT board FROM map WHERE map_id = :map_id');
         $stmt->execute(['map_id' => $mapId]);
         $row = $stmt->fetch();
