@@ -197,7 +197,7 @@ class Room
         }
 
         $currentPlayers = $redis->scard("room:{$roomId}:users");
-        if ($currentPlayers >= $startCount) {
+        if ($currentPlayers > $startCount) {
             return Response::error('room_full');
         }
 
