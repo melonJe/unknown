@@ -2,6 +2,10 @@
 const wsUrl = document.body.dataset.wsUrl;
 const roomId = document.body.dataset.roomId;
 
+document.getElementById("backButton").addEventListener("click", function () {
+  location.href = "index.php";
+});
+
 let myUserId;
 let boardWidth;
 let boardData;
