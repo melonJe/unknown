@@ -18,7 +18,7 @@ if (!$room_id) {
 
 <body data-ws-url="<?= $websocket_url ?>" data-room-id="<?= $room_id ?>">
     <h1>방 ID: <?= htmlspecialchars($room_id) ?></h1>
-    <button id="backButton">🔙 대기실로</button>
+    <a href="index.php"><button>🔙 대기실로</button></a>
     <button id="startBtn">Start Game</button>
     <div id="board"></div>
     <div id="turn-order"></div>
