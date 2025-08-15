@@ -240,6 +240,7 @@ class Room
 
     public static function startGame(string $roomId): array
     {
+             $turnSvc = new Turn();
         $redis    = getRedis();
         $roomKey  = "room:{$roomId}";
         $roomData = $redis->hgetall($roomKey);
@@ -268,15 +269,10 @@ class Room
         $redis->del($orderKey);
         $result = [];
         foreach ($turnOrder as $userId) {
-            $entry = [
+            $turnSvc->advanceHiddenTurn($roomId,  [
                 'user'   => $userId,
-                'action' => "setStartTile",
-            ];
-            $redis->rPush($orderKey, json_encode($entry));
-            $result[] = [
-                'user'   => $userId,
-                'action' => "setStartTile",
-            ];
+                'action' => 'setStartTile',
+            ]);
         }
 
         if (!empty($startTiles)) {
