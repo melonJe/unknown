@@ -264,7 +264,7 @@ class Room
         $redis->hset($roomKey, 'updated_at', date('Y-m-d H:i:s'));
         $turnOrder = $userIds;
         shuffle($turnOrder);
-        $orderKey = "room:{$roomId}:turn_order_move";
+        $orderKey = "room:{$roomId}:turn_order_hidden";
         $redis->del($orderKey);
         $result = [];
         foreach ($turnOrder as $userId) {
