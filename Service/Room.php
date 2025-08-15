@@ -240,7 +240,7 @@ class Room
 
     public static function startGame(string $roomId): array
     {
-             $turnSvc = new Turn();
+        $turnSvc = new Turn();
         $redis    = getRedis();
         $roomKey  = "room:{$roomId}";
         $roomData = $redis->hgetall($roomKey);
@@ -257,9 +257,9 @@ class Room
 
         $userIds = $redis->smembers("room:{$roomId}:users");
 
-        if (count($userIds) < 2 || count($userIds) > count($startTiles)) {
-            return ['error' => 'invalid_player_count'];
-        }
+        // if (count($userIds) < 2 || count($userIds) > count($startTiles)) {
+        //     return ['error' => 'invalid_player_count'];
+        // }
 
         $redis->hset($roomKey, 'started', '1');
         $redis->hset($roomKey, 'updated_at', date('Y-m-d H:i:s'));
