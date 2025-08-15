@@ -287,7 +287,7 @@ class Room
             }
         }
 
-        return Response::success(['turn_order' => $result]);
+        return Response::success(['turn_order' => $turnSvc::getTurnOrder()]);
     }
 
     public static function setStartTile(string $roomId, string $userId, int $x, int $y, array $dice): array
