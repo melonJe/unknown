@@ -39,6 +39,9 @@ class Turn
                         if ($rule->isLineOfThree($roomId, $decodedItem['user'])) {
                             $result[] = $decodedItem;
                         }
+                    } elseif ($decodedItem['action'] === 'setStartTile') {
+                        // Exile recovery turn should always be preserved
+                        $result[] = $decodedItem;
                     }
                 } else {
                     // Optional: Log or handle cases where JSON decoding fails
