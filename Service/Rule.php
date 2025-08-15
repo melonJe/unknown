@@ -92,21 +92,43 @@ class Rule
             return false;
         }
         $grid      = $roomDao->getTilesWithDiceColor($roomDto->getRoomId(), $allUsers);
-        $center    = [$userDto->getPosX(), $userDto->getPosY()];
-        $neighbors = $roomDto->getNeighbors($center, 1);
-        $frontColor  = $userDto->getDice()->getFrontColor();
-        $count     = 1; // 본인 포함
+        $centerX    = $userDto->getPosX();
+        $centerY    = $userDto->getPosY();
+        $neighbors  = $roomDto->getNeighbors([$centerX, $centerY], 1);
+        $frontColor = $userDto->getDice()->getFrontColor();
 
+        // 1) 주변 8칸에서 같은 색(front) 개수 계산 (자기 자신 제외)
+        $sameColorNeighborCount = 0;
         foreach ($neighbors as [$x, $y]) {
+            if ($x === $centerX && $y === $centerY) {
+                // exclude self tile
+                continue;
+            }
             if (($grid[$x][$y]['color'] ?? null) === $frontColor) {
-                $count++;
-                if ($count >= 3) {
-                    return true;
-                }
+                $sameColorNeighborCount++;
             }
         }
 
-        return false;
+        if ($sameColorNeighborCount < 3) {
+            return false;
+        }
+
+        // 2) 나 외의 다른 유저 주사위 중에서 front 색이 같은 대상이 존재하는지 확인 (추방 상태 제외)
+        $existsOtherSameFront = false;
+        foreach ($allUsers as $uid => $dto) {
+            if ((string)$uid === (string)$userId) {
+                continue; // skip self
+            }
+            if ($dto->getPosX() <= 0 && $dto->getPosY() <= 0) {
+                continue; // exiled or not on board
+            }
+            if ($dto->getDice()->getFrontColor() === $frontColor) {
+                $existsOtherSameFront = true;
+                break;
+            }
+        }
+
+        return $existsOtherSameFront;
     }
 
     /**

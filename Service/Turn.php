@@ -58,6 +58,8 @@ class Turn
             $jsonResults = array_map('json_encode', $result);
             $redis->rPush($key, ...$jsonResults);
         }
+        // Normalize TTL for hidden turn list (24 hours)
+        $redis->expire($key, 60 * 60 * 24);
 
         // Final mapping to the desired output format
         return array_map(
@@ -138,6 +140,8 @@ class Turn
 
         // ③ 중복 없으면 새 턴 추가
         $redis->rPush($key, json_encode($nextTurn));
+        // Ensure TTL for hidden turn list (24 hours)
+        $redis->expire($key, 60 * 60 * 24);
 
         return $this->getTurnOrder($roomId);
     }
@@ -149,6 +153,8 @@ class Turn
 
         $redis->lPop($key);
         $redis->rPush($key, json_encode($nextTurn));
+        // Ensure TTL for move turn list (24 hours)
+        $redis->expire($key, 60 * 60 * 24);
 
         return $this->getTurnOrder($roomId);
     }
@@ -172,6 +178,8 @@ class Turn
         if (!empty($newHidden)) {
             $redis->rPush($hiddenKey, ...$newHidden);
         }
+        // Normalize TTL for hidden list after rewrite (24 hours)
+        $redis->expire($hiddenKey, 60 * 60 * 24);
 
         // Remove from move turn order
         $moveKey = "room:{$roomId}:turn_order_move";
@@ -188,5 +196,7 @@ class Turn
         if (!empty($newMove)) {
             $redis->rPush($moveKey, ...$newMove);
         }
+        // Normalize TTL for move list after rewrite (24 hours)
+        $redis->expire($moveKey, 60 * 60 * 24);
     }
 }

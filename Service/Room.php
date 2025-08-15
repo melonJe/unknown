@@ -203,11 +203,15 @@ class Room
 
         $redis->sadd("room:{$roomId}:users", $userId);
         $redis->expire("room:{$roomId}:users", 60 * 60 * 24);
+        // Refresh room TTL since membership changed
+        $redis->expire($roomKey, 60 * 60 * 24);
         $userKey = "room:{$roomId}:user:{$userId}";
         $userData = $redis->hgetall($userKey);
 
         if (!empty($userData)) {
             $redis->expire($userKey, 60 * 60 * 24);
+            // Refresh room TTL on rejoin
+            $redis->expire($roomKey, 60 * 60 * 24);
             return Response::success(['message' => 'join']);
         }
         $startTiles = Board::getStartTiles($roomData['tiles']);
@@ -234,6 +238,8 @@ class Room
             'joined_at' => date('Y-m-d H:i:s'),
         ]);
         $redis->expire($userKey, 60 * 60 * 24);
+        // Refresh room TTL after user state creation
+        $redis->expire($roomKey, 60 * 60 * 24);
 
         return Response::success(['message' => 'join']);
     }
@@ -263,6 +269,8 @@ class Room
 
         $redis->hset($roomKey, 'started', '1');
         $redis->hset($roomKey, 'updated_at', date('Y-m-d H:i:s'));
+        // Refresh room TTL when game starts
+        $redis->expire($roomKey, 60 * 60 * 24);
         $turnOrder = $userIds;
         shuffle($turnOrder);
         $orderKey = "room:{$roomId}:turn_order_hidden";
@@ -286,6 +294,8 @@ class Room
                 $redis->expire($userKey, 60 * 60 * 24);
             }
         }
+        // Refresh room TTL after initializing user states
+        $redis->expire($roomKey, 60 * 60 * 24);
 
         return Response::success(['turn_order' => $turnSvc::getTurnOrder($roomId)]);
     }
