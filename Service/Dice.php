@@ -92,7 +92,8 @@ class Dice
         }
 
         // 미는게 가능한지
-        if (!self::tryPush($userStates, $nx, $ny, $dx, $dy, $tiles, $posToUid, $direction)) {
+        $affectedUids = [$targetUserId];
+        if (!self::tryPush($userStates, $nx, $ny, $dx, $dy, $tiles, $posToUid, $direction, $affectedUids)) {
             http_response_code(400);
             return Response::error('cannot push into invalid tile');
         }
@@ -147,8 +148,8 @@ class Dice
             $redis->expire("room:{$roomId}:user:{$uid}", 60 * 60 * 24);
         }
 
-        // Apply hidden rules for the user who actually moved (target)
-        self::applyHiddenRules($roomId, $targetUserId);
+        // Apply hidden rules for the actor and any users pushed by this action
+        self::applyHiddenRulesWithAffected($roomId, $userId, array_values(array_unique($affectedUids)));
 
         return Response::success(['message' => 'Dice state updated.']);
     }
@@ -190,7 +191,7 @@ class Dice
     }
 
     // 재귀 밀어내기 함수 (클래스 static 메서드)
-    private static function tryPush(&$userStates, $x, $y, $dx, $dy, $tiles, &$posToUid, $direction)
+    private static function tryPush(&$userStates, $x, $y, $dx, $dy, $tiles, &$posToUid, $direction, array &$affectedUids)
     {
         $targetKey = self::posKey($x, $y);
         if (!isset($posToUid[$targetKey])) {
@@ -204,7 +205,7 @@ class Dice
         if (!DiceHelper::isValidTile($nx, $ny, $tiles)) {
             return false;
         }
-        if (!self::tryPush($userStates, $nx, $ny, $dx, $dy, $tiles, $posToUid, $direction)) {
+        if (!self::tryPush($userStates, $nx, $ny, $dx, $dy, $tiles, $posToUid, $direction, $affectedUids)) {
             return false;
         }
 
@@ -212,6 +213,10 @@ class Dice
         $userStates[$uid]['pos_x'] = $nx;
         $userStates[$uid]['pos_y'] = $ny;
         $userStates[$uid]['dice'] = DiceHelper::roll($userStates[$uid]['dice'], $direction);
+        // 이 유저는 이번 액션에 의해 이동됨 → 영향받은 유저 목록에 추가
+        if (!in_array($uid, $affectedUids, true)) {
+            $affectedUids[] = $uid;
+        }
         unset($posToUid[$targetKey]);
         $posToUid[$nextKey] = $uid;
         return true;
@@ -298,7 +303,9 @@ class Dice
         }
 
         // 미는게 가능한지
-        if (!self::tryPush($userStates, $nx, $ny, $dx, $dy, $tiles, $posToUid, $direction)) {
+        // 이번 액션의 영향받은 유저 목록 (actor 포함)
+        $affectedUids = [$userId];
+        if (!self::tryPush($userStates, $nx, $ny, $dx, $dy, $tiles, $posToUid, $direction, $affectedUids)) {
             http_response_code(400);
             return Response::error('cannot push into invalid tile');
         }
@@ -345,7 +352,7 @@ class Dice
                     $state['dice']['left'],
                     $state['dice']['right'],
                     $state['dice']['front'],
-                    $state["dice"]["back"],
+                    $state['dice']['back'],
                 ),
                 $orig->getJoinedAt()
             );
@@ -353,22 +360,17 @@ class Dice
             $redis->expire("room:{$roomId}:user:{$uid}", 60 * 60 * 24);
         }
 
-        if ($started) {
-            self::applyHiddenRules($roomId, $userId);
-        }
+        // Apply hidden rules for the actor and users actually pushed by this action
+        self::applyHiddenRulesWithAffected($roomId, $userId, array_values(array_unique($affectedUids)));
 
-        return Response::success([
-            'new_position' => ['x' => $nx, 'y' => $ny],
-            'dice'         => $myNewDice,
-            'turn_order'   => $turnService->getTurnOrder($roomId)
-        ]);
+        return Response::success(['message' => 'Dice state updated.']);
     }
 
     private static function applyHiddenRules(string $roomId, string $userId): bool
     {
         $redis   = getRedis();
         $userDao = new UserDao($redis);
-        $roomDao = new RoomDao($redis);
+{{ ... }}
         $turnSvc = new Turn();
         $rule    = new Rule();
 
@@ -382,24 +384,23 @@ class Dice
         $allUsers = $userDao->findAllByRoomId($roomId);
 
         // 3) 탈락 조건 검사 → 상태 변경 + Redis 업데이트 + 턴 추가
-        foreach ($allUsers as $uid => $dto) {
-            if ($dto->getPosX() < 0) {
-                continue;
-            }
-            if ($rule->isExileCondition($roomDto, $dto)) {
-                $redis->hset("room:{$roomId}:user:{$uid}", 'pos_x', -1);
-                $redis->hset("room:{$roomId}:user:{$uid}", 'pos_y', -1);
+        //    현재 움직인 유저만 검사 (타 유저가 예기치 않게 setStartTile 되지 않도록)
+        $movedDto = $allUsers[$userId] ?? null;
+        if ($movedDto && $movedDto->getPosX() >= 0) {
+            if ($rule->isExileCondition($roomDto, $movedDto)) {
+                $redis->hset("room:{$roomId}:user:{$userId}", 'pos_x', -1);
+                $redis->hset("room:{$roomId}:user:{$userId}", 'pos_y', -1);
                 $turnSvc->advanceHiddenTurn($roomId, [
-                    'user'   => $uid,
+                    'user'   => $userId,
                     'action' => 'setStartTile',
                 ]);
 
-                $exileCount = $redis->hIncrBy("room:{$roomId}:user:{$uid}", 'exile_mark_count', 1);
+                $exileCount = $redis->hIncrBy("room:{$roomId}:user:{$userId}", 'exile_mark_count', 1);
                 if ($exileCount >= 3) {
-                    $turnSvc->removeUserFromTurns($roomId, $uid);
-                    User::deleteUserData($uid,  $roomId);
+                    $turnSvc->removeUserFromTurns($roomId, $userId);
+                    User::deleteUserData($userId,  $roomId);
                 } else {
-                    $redis->expire("room:{$roomId}:user:{$uid}", 86400);
+                    $redis->expire("room:{$roomId}:user:{$userId}", 86400);
                 }
             }
         }
@@ -434,6 +435,76 @@ class Dice
         }
 
         // 8) 턴 일괄 삽입
+        return true;
+    }
+
+    // actor와 이번 액션으로 실제로 이동된(밀린) 유저들만 추방 조건 검사
+    private static function applyHiddenRulesWithAffected(string $roomId, string $actorUserId, array $affectedUids): bool
+    {
+        $redis   = getRedis();
+        $userDao = new UserDao($redis);
+        $roomDao = new RoomDao($redis);
+        $turnSvc = new Turn();
+        $rule    = new Rule();
+
+        $roomDto = $roomDao->findByRoomId($roomId);
+        if (!$roomDto) {
+            return false;
+        }
+
+        $allUsers = $userDao->findAllByRoomId($roomId);
+
+        // 1) 추방 조건: 영향받은 유저들만 검사
+        foreach (array_unique($affectedUids) as $uid) {
+            $dto = $allUsers[$uid] ?? null;
+            if (!$dto) {
+                continue;
+            }
+            if ($dto->getPosX() < 0) {
+                continue;
+            }
+            if ($rule->isExileCondition($roomDto, $dto)) {
+                $redis->hset("room:{$roomId}:user:{$uid}", 'pos_x', -1);
+                $redis->hset("room:{$roomId}:user:{$uid}", 'pos_y', -1);
+                $turnSvc->advanceHiddenTurn($roomId, [
+                    'user'   => $uid,
+                    'action' => 'setStartTile',
+                ]);
+
+                $exileCount = $redis->hIncrBy("room:{$roomId}:user:{$uid}", 'exile_mark_count', 1);
+                if ($exileCount >= 3) {
+                    $turnSvc->removeUserFromTurns($roomId, $uid);
+                    User::deleteUserData($uid,  $roomId);
+                } else {
+                    $redis->expire("room:{$roomId}:user:{$uid}", 86400);
+                }
+            }
+        }
+
+        // 2) 기타 룰은 actor만 대상으로 유지
+        $noSameColor = $rule->isNoSameColorInNine($roomId, $actorUserId);
+        $threeOrMore = $rule->isThreeOrMoreInNine($roomId, $actorUserId);
+        $lineOfThree = $rule->isLineOfThree($roomId, $actorUserId);
+
+        if ($noSameColor) {
+            $turnSvc->advanceHiddenTurn($roomId,  [
+                'user'   => $actorUserId,
+                'action' => 'setDiceState',
+            ]);
+        }
+        if ($threeOrMore) {
+            $turnSvc->advanceHiddenTurn($roomId,  [
+                'user'   => $actorUserId,
+                'action' => 'targetMove'
+            ]);
+        }
+        if ($lineOfThree) {
+            $turnSvc->advanceHiddenTurn($roomId,  [
+                'user'   => $actorUserId,
+                'action' => 'extraTurn',
+            ]);
+        }
+
         return true;
     }
 }
