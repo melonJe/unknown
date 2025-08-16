@@ -11,6 +11,7 @@ $userId = $_SESSION['user_id'] ?? null;
 
 if (!isset($userId)) {
     $_SESSION['user_id'] = substr(md5(uniqid('', true)), 0, 10);
+    $userId = $_SESSION['user_id']; // ensure local variable is populated
 }
 
 // Redis에 유저 정보 저장 (Hash)

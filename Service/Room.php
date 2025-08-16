@@ -283,6 +283,18 @@ class Room
             ]);
         }
 
+        // Initialize move turn order with a round-robin queue of all players
+        $moveKey = "room:{$roomId}:turn_order_move";
+        $redis->del($moveKey);
+        foreach ($turnOrder as $uid) {
+            $redis->rPush($moveKey, json_encode([
+                'user'   => $uid,
+                'action' => 'move',
+            ]));
+        }
+        // Ensure TTL for move order (24 hours)
+        $redis->expire($moveKey, 60 * 60 * 24);
+
         if (!empty($startTiles)) {
             foreach ($userIds as $uid) {
                 $userKey = "room:{$roomId}:user:{$uid}";

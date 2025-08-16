@@ -151,8 +151,11 @@ class Turn
         $redis = getRedis();
         $key   = "room:{$roomId}:turn_order_move";
 
-        $redis->lPop($key);
-        $redis->rPush($key, json_encode($nextTurn));
+        // Rotate head to tail (round-robin)
+        $head = $redis->lPop($key);
+        if ($head !== null && $head !== false) {
+            $redis->rPush($key, $head);
+        }
         // Ensure TTL for move turn list (24 hours)
         $redis->expire($key, 60 * 60 * 24);
 

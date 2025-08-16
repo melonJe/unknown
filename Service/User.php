@@ -34,6 +34,13 @@ class User
         $redis->srem("users", $userId);
 
         if (!empty($roomId)) {
+            // Ensure the user is removed from any pending turn orders
+            try {
+                $turnSvc = new Turn();
+                $turnSvc->removeUserFromTurns($roomId, $userId);
+            } catch (\Throwable $e) {
+                // ignore turn cleanup failure to avoid blocking disconnect
+            }
             $dao->delete($roomId, $userId);
             $redis->srem("room:{$roomId}:users", $userId);
         }

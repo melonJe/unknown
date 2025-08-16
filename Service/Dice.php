@@ -147,7 +147,8 @@ class Dice
             $redis->expire("room:{$roomId}:user:{$uid}", 60 * 60 * 24);
         }
 
-        self::applyHiddenRules($roomId, $userId);
+        // Apply hidden rules for the user who actually moved (target)
+        self::applyHiddenRules($roomId, $targetUserId);
 
         return Response::success(['message' => 'Dice state updated.']);
     }
