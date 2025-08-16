@@ -105,43 +105,42 @@ class Rule
                 }
             }
         }
-
         return false;
     }
 
     /**
-     * 6. 노란색 윗면일 때 주변 9칸에 말이 3개 이상 있는지
-     *
-     * @param RoomDto     $room
-     * @param UserDto     $user
-     * @param UserDto[]   $allUsers
-     * @param RoomDao     $roomDao
-     * @return bool
+     * targetMove 실행 가능 후보가 있는지 확인
+     * - 거리 무관.
+     * - 현재 유저의 front가 'yellow'이면 아무 유저나 대상으로 가능(색상 무관), 동일 방에 다른 유저가 1명 이상 존재하면 true.
+     * - 그 외 색상은 같은 front 색을 가진 "다른 유저"가 1명 이상 존재해야 true.
      */
-    public function isYellowSpecial($roomId, $userId): bool
+    public function hasTargetMoveCandidate(string $roomId, string $userId): bool
     {
         $roomDao = new RoomDao(getRedis());
         $userDao = new UserDao(getRedis());
         $roomDto = $roomDao->findByRoomId($roomId);
         $userDto = $userDao->findByRoomAndUserId($roomId, $userId);
+        if (!$roomDto || !$userDto) {
+            return false;
+        }
         if ($userDto->getPosX() <= 0 && $userDto->getPosY() <= 0) {
             return false;
         }
+
+        $front = $userDto->getDice()->getFrontColor();
+
         $allUsers = $userDao->findAllByRoomId($roomId);
-        $frontColor = $userDto->getDice()->getFrontColor();
-        if ($frontColor !== 'yellow') {
-            return false;
-        }
-
-        $grid      = $roomDao->getTilesWithDiceColor($roomDto->getRoomId(), $allUsers);
-        $center    = [$userDto->getPosX(), $userDto->getPosY()];
-        $neighbors = $roomDto->getNeighbors($center, 1);
-        $count     = 0;
-
-        foreach ($neighbors as [$x, $y]) {
-            // 칸에 주사위가 있는지만 검사
-            if (isset($grid[$x][$y]['color'])) {
-                if (++$count >= 3) {
+        if ($front === 'yellow') {
+            // 노란색은 아무나 대상 가능: 같은 방에 다른 유저가 존재하기만 하면 후보가 있음
+            foreach ($allUsers as $uid => $_) {
+                if ($uid === $userId) { continue; }
+                return true;
+            }
+        } else {
+            foreach ($allUsers as $uid => $u) {
+                if ($uid === $userId) { continue; }
+                // 같은 front 색을 가진 다른 유저가 존재하는지만 확인 (거리 무관)
+                if ($u->getDice()->getFrontColor() === $front) {
                     return true;
                 }
             }
@@ -177,9 +176,20 @@ class Rule
 
         foreach ($directions as [$dx, $dy]) {
             $count = 1; // 자기 자신 포함
-            for ($i = 1; $i < 3; $i++) {
+            // 정방향으로 최대 2칸
+            for ($i = 1; $i <= 2; $i++) {
                 $nx = $startX + $dx * $i;
                 $ny = $startY + $dy * $i;
+                if (($grid[$nx][$ny]['color'] ?? null) === $frontColor) {
+                    $count++;
+                } else {
+                    break;
+                }
+            }
+            // 역방향으로 최대 2칸
+            for ($i = 1; $i <= 2; $i++) {
+                $nx = $startX - $dx * $i;
+                $ny = $startY - $dy * $i;
                 if (($grid[$nx][$ny]['color'] ?? null) === $frontColor) {
                     $count++;
                 } else {

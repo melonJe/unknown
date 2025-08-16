@@ -24,7 +24,7 @@ class Dice
         $user     = $allUsers[$userId];
 
         $targetUser = $allUsers[$targetUserId];
-        if ($user->getDice()->getFrontColor() !== 'yellow' && $user->getDice()->getFrontColor() !== $targetUser->getDice()->getTopColor()) {
+        if ($user->getDice()->getFrontColor() !== 'yellow' && $user->getDice()->getFrontColor() !== $targetUser->getDice()->getFrontColor()) {
             return Response::error('Invalid dice position. Same color found nearby.', 'targetMove');
         }
 
@@ -146,8 +146,9 @@ class Dice
             $userDao->save($dto);
             $redis->expire("room:{$roomId}:user:{$uid}", 60 * 60 * 24);
         }
-
-        self::applyHiddenRules($roomId, $userId);
+        
+        $turnSvc->removeCurrentHiddenTurn($roomId);
+        self::applyHiddenRules($roomId, $targetUserId);
 
         return Response::success(['message' => 'Dice state updated.']);
     }
@@ -156,6 +157,7 @@ class Dice
         $redis   = getRedis();
         $userDao = new UserDao($redis);
         $rule    = new Rule();
+        $turnSvc = new Turn();
 
         $allUsers = $userDao->findAllByRoomId($roomId);
         $user     = $allUsers[$userId];
@@ -172,9 +174,12 @@ class Dice
             'dice'        => json_encode($orientation),
         ]);
         $redis->expire($userKey, 60 * 60 * 24);
+
+        self::applyHiddenRules($roomId, $userId);
+
         if (!$rule->isNoSameColorInNine($roomId, $userId)) {
             // Valid state, save and advance turn
-            $redis->lPop("room:{$roomId}:turn_order_hidden");
+            $turnSvc->removeCurrentHiddenTurn($roomId);
             return Response::success(['message' => 'Dice state updated.']);
         } else {
             // Invalid state, revert dice and ask user to try again
@@ -354,6 +359,8 @@ class Dice
 
         if ($started) {
             self::applyHiddenRules($roomId, $userId);
+            // Rotate move turn: consume current head and append to tail
+            $turnService->advanceMoveTurn($roomId, []);
         }
 
         return Response::success([
@@ -406,6 +413,7 @@ class Dice
         // 4) 기타 룰 검사 결과를 미리 저장
         $noSameColor   = $rule->isNoSameColorInNine($roomId, $userId);
         $threeOrMore   = $rule->isThreeOrMoreInNine($roomId, $userId);
+        $hasTarget     = $rule->hasTargetMoveCandidate($roomId, $userId);
         $lineOfThree   = $rule->isLineOfThree($roomId, $userId);
 
         // 5) NoSameColor 턴
@@ -417,7 +425,7 @@ class Dice
         }
 
         // 6) ThreeOrMore 턴
-        if ($threeOrMore) {
+        if ($threeOrMore && $hasTarget) {
             $turnSvc->advanceHiddenTurn($roomId,  [
                 'user'   => $userId,
                 'action' => 'targetMove'

@@ -20,7 +20,7 @@ use Service\User;
 use Service\Dice;
 use Service\Turn;
 
-$ws_worker = new Worker("websocket://$_ENV['WEBSOCKET_HOST']:$_ENV['WEBSOCKET_PORT']");
+$ws_worker = new Worker("websocket://0.0.0.0:8080");
 
 // 클라이언트 전체 목록
 $ws_worker->connections = [];
@@ -108,15 +108,10 @@ $ws_worker->onMessage = function (TcpConnection $conn, $data) use (&$ws_worker) 
                     $conn->send(json_encode(['type' => 'error', 'message' => $ok['error'] ?? 'invalid start']));
                     break;
                 }
-                $turnService = new Turn();
-                $newOrder = $turnService->advanceMoveTurn($msg['room_id'], [
-                    'user'   => $msg['user_id'],
-                    'action' => 'move',
-                ]);
                 foreach ($ws_worker->connections as $c) {
                     if ($c->roomId === $msg['room_id']) {
                         $c->send(json_encode(['type' => 'dices_data', 'dices' => User::getDices($msg['room_id'])]));
-                        $c->send(json_encode(['type' => 'next_turn', 'user' => User::getUserData($msg['room_id'], $msg['user_id']), 'turn_order' => $newOrder]));
+                        $c->send(json_encode(['type' => 'next_turn', 'user' => User::getUserData($msg['room_id'], $msg['user_id']), 'turn_order' => Turn::getTurnOrder($msg['room_id'])]));
                     }
                 }
                 break;

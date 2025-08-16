@@ -21,28 +21,29 @@ class Turn
             foreach ($items as $itemString) { // Renamed $item to $itemString for clarity
                 $decodedItem = json_decode($itemString, true);
 
-                // --- Potential problem lines were here (20, 24, 28) ---
-                // Add a check to ensure $decodedItem is an array and not null
-                if (is_array($decodedItem)) { // This is the crucial check
-                    if ($decodedItem['action'] === 'setDiceState') {
-                        // Line 20 (original)
-                        if ($rule->isNoSameColorInNine($roomId, $decodedItem['user'])) {
-                            $result[] = $decodedItem;
-                        }
-                    } elseif ($decodedItem['action'] === 'targetMove') {
-                        // Line 24 (original)
-                        if ($rule->isThreeOrMoreInNine($roomId, $decodedItem['user'])) {
-                            $result[] = $decodedItem;
-                        }
-                    } elseif ($decodedItem['action'] === 'extraTurn') {
-                        // Line 28 (original)
-                        if ($rule->isLineOfThree($roomId, $decodedItem['user'])) {
-                            $result[] = $decodedItem;
-                        }
+                // Validate structure
+                if (!is_array($decodedItem) || !isset($decodedItem['action'], $decodedItem['user'])) {
+                    error_log("Warning: Invalid turn item in hidden queue for room '{$roomId}': {$itemString}");
+                    continue;
+                }
+
+                if ($decodedItem['action'] === 'setDiceState') {
+                    if ($rule->isNoSameColorInNine($roomId, $decodedItem['user'])
+                    ) {
+                        $result[] = $decodedItem;
+                    }
+                } elseif ($decodedItem['action'] === 'targetMove') {
+                    // Keep only when 3+ same-color in 3x3
+                    if ($rule->isThreeOrMoreInNine($roomId, $decodedItem['user'])
+                    && $rule->hasTargetMoveCandidate($roomId, $decodedItem['user'])) {
+                        $result[] = $decodedItem;
+                    }
+                } elseif ($decodedItem['action'] === 'extraTurn') {
+                    if ($rule->isLineOfThree($roomId, $decodedItem['user'])) {
+                        $result[] = $decodedItem;
                     }
                 } else {
-                    // Optional: Log or handle cases where JSON decoding fails
-                    error_log("Warning: Failed to decode JSON item from Redis for room '{$roomId}': {$itemString}");
+                    $result[] = $decodedItem; // Unknown actions pass-through
                 }
             }
         }
@@ -144,9 +145,41 @@ class Turn
         $redis = getRedis();
         $key   = "room:{$roomId}:turn_order_move";
 
-        $redis->lPop($key);
-        $redis->rPush($key, json_encode($nextTurn));
+        // Pop current head
+        $popped = $redis->lPop($key);
 
+        // If nextTurn is not provided (no user/action), rotate the popped item to the tail.
+        if (!isset($nextTurn['user']) || !isset($nextTurn['action'])) {
+            if ($popped !== null && $popped !== false) {
+                $redis->rPush($key, $popped);
+            }
+        } else {
+            // Caller explicitly sets the next move turn
+            $redis->rPush($key, json_encode($nextTurn));
+        }
+
+        return $this->getTurnOrder($roomId);
+    }
+
+    /**
+     * Remove the current (head) hidden turn.
+     */
+    public function removeCurrentHiddenTurn(string $roomId): array
+    {
+        $redis = getRedis();
+        $key   = "room:{$roomId}:turn_order_hidden";
+        $redis->lPop($key);
+        return $this->getTurnOrder($roomId);
+    }
+
+    /**
+     * Remove the current (head) move turn.
+     */
+    public function removeCurrentMoveTurn(string $roomId): array
+    {
+        $redis = getRedis();
+        $key   = "room:{$roomId}:turn_order_move";
+        $redis->lPop($key);
         return $this->getTurnOrder($roomId);
     }
 
