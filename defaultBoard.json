@@ -1,28 +1,21 @@
 {
   "tiles": [
-    { "x": 12, "y": 1, "type": "start", "color": "white", "score": 3 },
-
+    { "x": 12, "y": 1, "type": "start", "color": "", "score": 3 },
     { "x": 12, "y": 2, "type": "floor", "color": "red", "score": 23 },
-
     { "x": 12, "y": 3, "type": "floor", "color": "blue", "score": 23 },
-
     { "x": 12, "y": 4, "type": "floor", "color": "yellow", "score": 23 },
-
     { "x": 12, "y": 5, "type": "floor", "color": "purple", "score": 23 },
-
-    { "x": 10, "y": 6, "type": "start", "color": "white", "score": 23 },
+    { "x": 10, "y": 6, "type": "start", "color": "", "score": 23 },
     { "x": 12, "y": 6, "type": "floor", "color": "yellow", "score": 23 },
-    { "x": 14, "y": 6, "type": "start", "color": "white", "score": 23 },
-
-    { "x": 9, "y": 7, "type": "start", "color": "white", "score": 31 },
+    { "x": 14, "y": 6, "type": "start", "color": "", "score": 23 },
+    { "x": 9, "y": 7, "type": "start", "color": "", "score": 31 },
     { "x": 10, "y": 7, "type": "floor", "color": "blue", "score": 31 },
     { "x": 11, "y": 7, "type": "floor", "color": "green", "score": 31 },
     { "x": 12, "y": 7, "type": "floor", "color": "red", "score": 31 },
     { "x": 13, "y": 7, "type": "floor", "color": "blue", "score": 31 },
     { "x": 14, "y": 7, "type": "floor", "color": "purple", "score": 31 },
-    { "x": 15, "y": 7, "type": "start", "color": "white", "score": 31 },
-
-    { "x": 8, "y": 8, "type": "start", "color": "white", "score": 31 },
+    { "x": 15, "y": 7, "type": "start", "color": "", "score": 31 },
+    { "x": 8, "y": 8, "type": "start", "color": "", "score": 31 },
     { "x": 9, "y": 8, "type": "floor", "color": "purple", "score": 31 },
     { "x": 10, "y": 8, "type": "floor", "color": "white", "score": 31 },
     { "x": 11, "y": 8, "type": "floor", "color": "purple", "score": 31 },
@@ -30,8 +23,7 @@
     { "x": 13, "y": 8, "type": "floor", "color": "purple", "score": 31 },
     { "x": 14, "y": 8, "type": "floor", "color": "green", "score": 31 },
     { "x": 15, "y": 8, "type": "floor", "color": "yellow", "score": 31 },
-    { "x": 16, "y": 8, "type": "start", "color": "white", "score": 31 },
-
+    { "x": 16, "y": 8, "type": "start", "color": "", "score": 31 },
     { "x": 8, "y": 9, "type": "floor", "color": "white", "score": 31 },
     { "x": 9, "y": 9, "type": "floor", "color": "green", "score": 31 },
     { "x": 10, "y": 9, "type": "floor", "color": "yellow", "score": 31 },
@@ -41,8 +33,7 @@
     { "x": 14, "y": 9, "type": "floor", "color": "white", "score": 31 },
     { "x": 15, "y": 9, "type": "floor", "color": "blue", "score": 31 },
     { "x": 16, "y": 9, "type": "floor", "color": "white", "score": 31 },
-
-    { "x": 6, "y": 10, "type": "start", "color": "white", "score": 31 },
+    { "x": 6, "y": 10, "type": "start", "color": "", "score": 31 },
     { "x": 7, "y": 10, "type": "floor", "color": "purple", "score": 31 },
     { "x": 8, "y": 10, "type": "floor", "color": "blue", "score": 31 },
     { "x": 9, "y": 10, "type": "floor", "color": "red", "score": 31 },
@@ -54,9 +45,8 @@
     { "x": 15, "y": 10, "type": "floor", "color": "red", "score": 31 },
     { "x": 16, "y": 10, "type": "floor", "color": "purple", "score": 31 },
     { "x": 17, "y": 10, "type": "floor", "color": "yellow", "score": 31 },
-    { "x": 18, "y": 10, "type": "start", "color": "white", "score": 31 },
-
-    { "x": 7, "y": 11, "type": "start", "color": "white", "score": 31 },
+    { "x": 18, "y": 10, "type": "start", "color": "", "score": 31 },
+    { "x": 7, "y": 11, "type": "start", "color": "", "score": 31 },
     { "x": 8, "y": 11, "type": "floor", "color": "yellow", "score": 31 },
     { "x": 9, "y": 11, "type": "floor", "color": "white", "score": 31 },
     { "x": 10, "y": 11, "type": "floor", "color": "yellow", "score": 31 },
@@ -66,9 +56,8 @@
     { "x": 14, "y": 11, "type": "floor", "color": "white", "score": 31 },
     { "x": 15, "y": 11, "type": "floor", "color": "green", "score": 31 },
     { "x": 16, "y": 11, "type": "floor", "color": "blue", "score": 31 },
-    { "x": 17, "y": 11, "type": "start", "color": "green", "score": 31 },
-
-    { "x": 1, "y": 12, "type": "start", "color": "white", "score": 31 },
+    { "x": 17, "y": 11, "type": "start", "color": "", "score": 31 },
+    { "x": 1, "y": 12, "type": "start", "color": "", "score": 31 },
     { "x": 2, "y": 12, "type": "floor", "color": "red", "score": 31 },
     { "x": 3, "y": 12, "type": "floor", "color": "green", "score": 31 },
     { "x": 4, "y": 12, "type": "floor", "color": "purple", "score": 31 },
@@ -90,8 +79,7 @@
     { "x": 20, "y": 12, "type": "floor", "color": "blue", "score": 31 },
     { "x": 21, "y": 12, "type": "floor", "color": "yellow", "score": 31 },
     { "x": 22, "y": 12, "type": "floor", "color": "red", "score": 31 },
-    { "x": 23, "y": 12, "type": "start", "color": "white", "score": 31 },
-
+    { "x": 23, "y": 12, "type": "start", "color": "", "score": 31 },
     { "x": 7, "y": 13, "type": "floor", "color": "white", "score": 31 },
     { "x": 8, "y": 13, "type": "floor", "color": "red", "score": 31 },
     { "x": 9, "y": 13, "type": "floor", "color": "yellow", "score": 31 },
@@ -103,8 +91,7 @@
     { "x": 15, "y": 13, "type": "floor", "color": "yellow", "score": 31 },
     { "x": 16, "y": 13, "type": "floor", "color": "green", "score": 31 },
     { "x": 17, "y": 13, "type": "floor", "color": "red", "score": 31 },
-
-    { "x": 6, "y": 14, "type": "start", "color": "white", "score": 31 },
+    { "x": 6, "y": 14, "type": "start", "color": "", "score": 31 },
     { "x": 7, "y": 14, "type": "floor", "color": "yellow", "score": 31 },
     { "x": 8, "y": 14, "type": "floor", "color": "green", "score": 31 },
     { "x": 9, "y": 14, "type": "floor", "color": "purple", "score": 31 },
@@ -116,8 +103,7 @@
     { "x": 15, "y": 14, "type": "floor", "color": "white", "score": 31 },
     { "x": 16, "y": 14, "type": "floor", "color": "blue", "score": 31 },
     { "x": 17, "y": 14, "type": "floor", "color": "purple", "score": 31 },
-    { "x": 18, "y": 14, "type": "start", "color": "white", "score": 31 },
-
+    { "x": 18, "y": 14, "type": "start", "color": "", "score": 31 },
     { "x": 8, "y": 15, "type": "floor", "color": "blue", "score": 31 },
     { "x": 9, "y": 15, "type": "floor", "color": "white", "score": 31 },
     { "x": 10, "y": 15, "type": "floor", "color": "red", "score": 31 },
@@ -127,8 +113,7 @@
     { "x": 14, "y": 15, "type": "floor", "color": "yellow", "score": 31 },
     { "x": 15, "y": 15, "type": "floor", "color": "purple", "score": 31 },
     { "x": 16, "y": 15, "type": "floor", "color": "green", "score": 31 },
-
-    { "x": 8, "y": 16, "type": "start", "color": "white", "score": 31 },
+    { "x": 8, "y": 16, "type": "start", "color": "", "score": 31 },
     { "x": 9, "y": 16, "type": "floor", "color": "green", "score": 31 },
     { "x": 10, "y": 16, "type": "floor", "color": "purple", "score": 31 },
     { "x": 11, "y": 16, "type": "floor", "color": "blue", "score": 31 },
@@ -136,29 +121,22 @@
     { "x": 13, "y": 16, "type": "floor", "color": "blue", "score": 31 },
     { "x": 14, "y": 16, "type": "floor", "color": "green", "score": 31 },
     { "x": 15, "y": 16, "type": "floor", "color": "red", "score": 31 },
-    { "x": 16, "y": 16, "type": "start", "color": "white", "score": 31 },
-
-    { "x": 9, "y": 17, "type": "start", "color": "white", "score": 31 },
+    { "x": 16, "y": 16, "type": "start", "color": "", "score": 31 },
+    { "x": 9, "y": 17, "type": "start", "color": "", "score": 31 },
     { "x": 10, "y": 17, "type": "floor", "color": "yellow", "score": 31 },
     { "x": 11, "y": 17, "type": "floor", "color": "purple", "score": 31 },
     { "x": 12, "y": 17, "type": "floor", "color": "green", "score": 31 },
     { "x": 13, "y": 17, "type": "floor", "color": "white", "score": 31 },
     { "x": 14, "y": 17, "type": "floor", "color": "purple", "score": 31 },
-    { "x": 15, "y": 17, "type": "start", "color": "white", "score": 31 },
-
-    { "x": 10, "y": 18, "type": "start", "color": "white", "score": 31 },
+    { "x": 15, "y": 17, "type": "start", "color": "", "score": 31 },
+    { "x": 10, "y": 18, "type": "start", "color": "", "score": 31 },
     { "x": 12, "y": 18, "type": "floor", "color": "yellow", "score": 31 },
-    { "x": 14, "y": 18, "type": "start", "color": "white", "score": 31 },
-
+    { "x": 14, "y": 18, "type": "start", "color": "", "score": 31 },
     { "x": 12, "y": 19, "type": "floor", "color": "green", "score": 31 },
-
     { "x": 12, "y": 20, "type": "floor", "color": "blue", "score": 31 },
-
     { "x": 12, "y": 21, "type": "floor", "color": "yellow", "score": 31 },
-
     { "x": 12, "y": 22, "type": "floor", "color": "blue", "score": 31 },
-
-    { "x": 12, "y": 23, "type": "start", "color": "white", "score": 31 }
+    { "x": 12, "y": 23, "type": "start", "color": "", "score": 31 }
   ],
   "width": 23,
   "height": 23

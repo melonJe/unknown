@@ -6,7 +6,7 @@ body {
   font-family: sans-serif;
   text-align: center;
   background: #f8f8f8;
-  padding: 20px;
+  padding: 20px; /* moved from index.php inline style */
 }
 
 #board {
@@ -74,6 +74,11 @@ body {
   background: white;
 }
 
+/* empty tile (no tile data) */
+.tile.empty {
+  background: #eee;
+}
+
 
 /* dice */
 .dice-container {
@@ -105,6 +110,14 @@ body {
   align-items: center;
   justify-content: center;
 }
+
+/* face color classes (avoid inline styles) */
+.face.red { background: #BF2C47; }
+.face.blue { background: #0468BF; }
+.face.yellow { background: #D9C24E; }
+.face.green { background: #03A678; }
+.face.purple { background: #8B65BF; }
+.face.white { background: white; }
 
 /* translateZ: tile-size / 2 */
 
@@ -188,11 +201,19 @@ body {
   cursor: pointer;
 }
 
+/* Lobby (index.php) styles moved from inline */
 #room-list {
   list-style: none;
   padding: 0;
+  margin: 0 auto;
+  max-width: 480px;
+  text-align: left;
 }
 
 #room-list li {
   margin: 8px 0;
+}
+
+.disabled-room {
+  color: #888;
 }

@@ -1,6 +1,6 @@
 <?php
 
-$websocket_url = getenv('WEBSOCKET_URL') ?: 'wss://unknown_ws.meloncaput.com';
+$websocket_url = getenv('WEBSOCKET_URL');
 $room_id = $_GET['room_id'] ?? '';
 if (!$room_id) {
     header('Location: index.php');
@@ -16,14 +16,14 @@ if (!$room_id) {
     <link rel="stylesheet" href="style.css">
 </head>
 
-<body data-ws-url="<?= $websocket_url ?>" data-room-id="<?= $room_id ?>">
+<body data-room-id="<?= htmlspecialchars($room_id) ?>" data-websocket-url="<?= htmlspecialchars($websocket_url) ?>">
     <h1>방 ID: <?= htmlspecialchars($room_id) ?></h1>
-    <a href="index.php"><button>🔙 대기실로</button></a>
+    <button id="backBtn">🔙 대기실로</button>
     <button id="startBtn">Start Game</button>
     <div id="board"></div>
     <div id="turn-order"></div>
     <div id="start-dice"></div>
-  <script src="game.js"></script>
+    <script src="game.js" defer></script>
 </body>
 
 </html>

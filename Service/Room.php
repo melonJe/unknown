@@ -197,21 +197,17 @@ class Room
         }
 
         $currentPlayers = $redis->scard("room:{$roomId}:users");
-        if ($currentPlayers > $startCount) {
+        if ($currentPlayers >= $startCount) {
             return Response::error('room_full');
         }
 
         $redis->sadd("room:{$roomId}:users", $userId);
         $redis->expire("room:{$roomId}:users", 60 * 60 * 24);
-        // Refresh room TTL since membership changed
-        $redis->expire($roomKey, 60 * 60 * 24);
         $userKey = "room:{$roomId}:user:{$userId}";
         $userData = $redis->hgetall($userKey);
 
         if (!empty($userData)) {
             $redis->expire($userKey, 60 * 60 * 24);
-            // Refresh room TTL on rejoin
-            $redis->expire($roomKey, 60 * 60 * 24);
             return Response::success(['message' => 'join']);
         }
         $startTiles = Board::getStartTiles($roomData['tiles']);
@@ -238,15 +234,12 @@ class Room
             'joined_at' => date('Y-m-d H:i:s'),
         ]);
         $redis->expire($userKey, 60 * 60 * 24);
-        // Refresh room TTL after user state creation
-        $redis->expire($roomKey, 60 * 60 * 24);
 
         return Response::success(['message' => 'join']);
     }
 
     public static function startGame(string $roomId): array
     {
-        $turnSvc = new Turn();
         $redis    = getRedis();
         $roomKey  = "room:{$roomId}";
         $roomData = $redis->hgetall($roomKey);
@@ -263,41 +256,57 @@ class Room
 
         $userIds = $redis->smembers("room:{$roomId}:users");
 
-        if (count($userIds) < 2 || count($userIds) > count($startTiles)) {
-            return ['error' => 'invalid_player_count'];
-        }
+        // if (count($userIds) < 4 || count($userIds) > count($startTiles)) {
+        //     return ['error' => 'invalid_player_count'];
+        // }
 
-        $redis->hset($roomKey, 'started', '1');
-        $redis->hset($roomKey, 'updated_at', date('Y-m-d H:i:s'));
-        // Refresh room TTL when game starts
-        $redis->expire($roomKey, 60 * 60 * 24);
+        $now = date('Y-m-d H:i:s');
         $turnOrder = $userIds;
         shuffle($turnOrder);
-        $orderKey = "room:{$roomId}:turn_order_hidden";
-        $redis->del($orderKey);
+        // Seed turns into HIDDEN and MOVE queues so they are processed with priority
+        $orderKey      = "room:{$roomId}:turn_order_hidden";
+        $orderKeyMove  = "room:{$roomId}:turn_order_move";
+
         $result = [];
         foreach ($turnOrder as $userId) {
-            $turnSvc->advanceHiddenTurn($roomId,  [
-                'user'   => $userId,
-                'action' => 'setStartTile',
+            // Build result (kept outside pipeline for return value)
+            $result[] = [ 'user' => $userId, 'action' => 'setStartTile' ];
+            $result[] = [ 'user' => $userId, 'action' => 'move' ];
+        }
+
+        // Batch all Redis operations to reduce round-trips
+        $redis->pipeline(function ($pipe) use ($roomKey, $now, $orderKey, $orderKeyMove, $turnOrder, $userIds, $roomId, $startTiles) {
+            // Update room status
+            $pipe->hmset($roomKey, [
+                'started'    => '1',
+                'updated_at' => $now,
             ]);
-        }
 
-        if (!empty($startTiles)) {
-            foreach ($userIds as $uid) {
-                $userKey = "room:{$roomId}:user:{$uid}";
-                $redis->hmset($userKey, [
-                    'pos_x' => -1,
-                    'pos_y' => -1,
-                    'start_score' => 0,
-                ]);
-                $redis->expire($userKey, 60 * 60 * 24);
+            // Reset both queues before seeding
+            $pipe->del($orderKey);
+            $pipe->del($orderKeyMove);
+
+            // Seed turn queues
+            foreach ($turnOrder as $uid) {
+                $pipe->rpush($orderKey, json_encode(['user' => $uid, 'action' => 'setStartTile']));
+                $pipe->rpush($orderKeyMove, json_encode(['user' => $uid, 'action' => 'move']));
             }
-        }
-        // Refresh room TTL after initializing user states
-        $redis->expire($roomKey, 60 * 60 * 24);
 
-        return Response::success(['turn_order' => $turnSvc::getTurnOrder($roomId)]);
+            // Initialize per-user placeholders if board has start tiles
+            if (!empty($startTiles)) {
+                foreach ($userIds as $uid) {
+                    $userKey = "room:{$roomId}:user:{$uid}";
+                    $pipe->hmset($userKey, [
+                        'pos_x'       => -1,
+                        'pos_y'       => -1,
+                        'start_score' => 0,
+                    ]);
+                    $pipe->expire($userKey, 60 * 60 * 24);
+                }
+            }
+        });
+
+        return Response::success(['turn_order' => $result]);
     }
 
     public static function setStartTile(string $roomId, string $userId, int $x, int $y, array $dice): array
@@ -326,7 +335,8 @@ class Room
 
         $startScore = (int)($tiles[$x][$y]['score'] ?? 0);
 
-        $redis->lpop("room:{$roomId}:turn_order_hidden");
+        $turnSvc = new Turn();
+        $turnSvc->removeCurrentHiddenTurn($roomId);
         $userKey = "room:{$roomId}:user:{$userId}";
         $redis->hmset($userKey, [
             'pos_x'       => $x,
